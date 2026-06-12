@@ -4,13 +4,14 @@
 import { useApp } from '../context/AppContext'
 import {
   IconoInicio, IconoDashboard, IconoCaptura, IconoHistorial,
-  IconoConfig, IconoSol, IconoLuna,
+  IconoConfig, IconoSol, IconoLuna, IconoUsuarios,
 } from './Iconos'
 
 const PAGINAS = [
   { id: 'inicio', etiqueta: 'Inicio', Icono: IconoInicio },
   { id: 'dashboard', etiqueta: 'Dashboard', Icono: IconoDashboard },
   { id: 'captura', etiqueta: 'Captura de datos', Icono: IconoCaptura },
+  { id: 'distribuidores', etiqueta: 'Distribuidores', Icono: IconoUsuarios },
   { id: 'historial', etiqueta: 'Historial', Icono: IconoHistorial },
   { id: 'configuracion', etiqueta: 'Configuración', Icono: IconoConfig },
 ]

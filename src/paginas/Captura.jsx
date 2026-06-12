@@ -23,7 +23,7 @@ function formularioVacio() {
 }
 
 let contadorFila = 0
-const nuevaFila = () => ({ clave: ++contadorFila, nombre: '', volumen: '' })
+const nuevaFila = () => ({ clave: ++contadorFila, id: '', nombre: '', volumen: '' })
 
 export default function Captura() {
   const {
@@ -47,6 +47,19 @@ export default function Captura() {
   // Inscripciones nuevas detectadas en la lista (CV de exactamente 30 pts)
   const nuevosDetectados = contarNuevos(filas)
 
+  // Último ID conocido de cada nombre (para autollenar el ID al escribir un
+  // nombre que ya existe en meses anteriores)
+  const idsPorNombre = useMemo(() => {
+    const mapa = new Map()
+    for (const m of meses) {
+      for (const d of m.distribuidores || []) {
+        const id = String(d.id ?? '').trim()
+        if (id) mapa.set(d.nombre.trim().toLocaleLowerCase('es'), id)
+      }
+    }
+    return mapa
+  }, [meses])
+
   useEffect(() => {
     if (mesEditado) {
       setForm({
@@ -60,7 +73,12 @@ export default function Captura() {
       })
       setFilas(
         mesEditado.distribuidores.length
-          ? mesEditado.distribuidores.map((d) => ({ ...nuevaFila(), nombre: d.nombre, volumen: String(d.volumen) }))
+          ? mesEditado.distribuidores.map((d) => ({
+              ...nuevaFila(),
+              id: String(d.id ?? ''),
+              nombre: d.nombre,
+              volumen: String(d.volumen),
+            }))
           : [nuevaFila()]
       )
     } else {
@@ -77,7 +95,18 @@ export default function Captura() {
   }
 
   function cambiarFila(clave, campo, valor) {
-    setFilas((fs) => fs.map((f) => (f.clave === clave ? { ...f, [campo]: valor } : f)))
+    setFilas((fs) =>
+      fs.map((f) => {
+        if (f.clave !== clave) return f
+        const fila = { ...f, [campo]: valor }
+        // Al escribir un nombre ya conocido, autollenar su ID si está vacío
+        if (campo === 'nombre' && !fila.id.trim()) {
+          const idConocido = idsPorNombre.get(valor.trim().toLocaleLowerCase('es'))
+          if (idConocido) fila.id = idConocido
+        }
+        return fila
+      })
+    )
     setDuplicadosPendientes(null)
   }
 
@@ -95,8 +124,9 @@ export default function Captura() {
   }
 
   /**
-   * Pegado rápido: convierte un texto con un distribuidor por línea
-   * ("Nombre 350", "Nombre, 350", "Nombre⇥350") en filas de la lista.
+   * Pegado rápido: convierte un texto con un distribuidor por línea en filas.
+   * Acepta "Nombre 350", "Nombre, 350", "Nombre⇥350" y también con ID al
+   * inicio: "12345 Nombre 350" (el ID debe contener al menos un dígito).
    * Las líneas que no se entienden se quedan en el cuadro para corregirlas.
    */
   function agregarLista() {
@@ -106,14 +136,26 @@ export default function Captura() {
 
     for (const linea of lineas) {
       if (!linea.trim()) continue
-      const m = linea.trim().match(/^(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
-      const nombre = m?.[1].replace(/[,;:\t]+$/, '').trim()
-      const volumen = m ? Number(m[2].replace(/,/g, '')) : NaN
+      const limpia = linea.trim()
+
+      // Intento 1: ID + Nombre + Volumen (el primer token lleva algún dígito)
+      let id = ''
+      let m = limpia.match(/^([A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)[\s,;:\t]+(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
+      if (m) {
+        id = m[1]
+      } else {
+        // Intento 2: solo Nombre + Volumen
+        m = limpia.match(/^(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
+        if (m) m = [m[0], '', m[1], m[2]]
+      }
+
+      const nombre = m?.[2].replace(/[,;:\t]+$/, '').trim()
+      const volumen = m ? Number(m[3].replace(/,/g, '')) : NaN
       if (!nombre || isNaN(volumen)) {
         noReconocidas.push(linea)
         continue
       }
-      nuevas.push({ ...nuevaFila(), nombre, volumen: String(volumen) })
+      nuevas.push({ ...nuevaFila(), id, nombre, volumen: String(volumen) })
     }
 
     if (nuevas.length === 0) {
@@ -155,21 +197,28 @@ export default function Captura() {
     }
 
     // Filas de distribuidores: ignoramos las totalmente vacías
-    const llenas = filas.filter((f) => f.nombre.trim() !== '' || f.volumen !== '')
+    const llenas = filas.filter((f) => f.nombre.trim() !== '' || f.volumen !== '' || f.id.trim() !== '')
     for (const f of llenas) {
       if (!f.nombre.trim()) errs.push('Hay un distribuidor sin nombre.')
       if (f.volumen === '' || isNaN(Number(f.volumen))) errs.push(`El volumen de «${f.nombre.trim() || '(sin nombre)'}» debe ser un número.`)
       else if (Number(f.volumen) < 0) errs.push(`El volumen de «${f.nombre.trim()}» no puede ser negativo.`)
     }
 
-    // Nombres duplicados dentro del mismo mes → advertir y pedir confirmación
-    const vistos = new Map()
+    // Nombres o IDs duplicados dentro del mismo mes → advertir y confirmar
+    const nombresVistos = new Set()
+    const idsVistos = new Set()
     const duplicados = new Set()
     for (const f of llenas) {
       const nombre = f.nombre.trim().toLocaleLowerCase('es')
-      if (!nombre) continue
-      if (vistos.has(nombre)) duplicados.add(f.nombre.trim())
-      vistos.set(nombre, true)
+      const id = f.id.trim().toLowerCase()
+      if (nombre) {
+        if (nombresVistos.has(nombre)) duplicados.add(f.nombre.trim())
+        nombresVistos.add(nombre)
+      }
+      if (id) {
+        if (idsVistos.has(id)) duplicados.add(`ID ${f.id.trim()}`)
+        idsVistos.add(id)
+      }
     }
 
     return { errores: errs, duplicados: [...duplicados], llenas }
@@ -199,7 +248,7 @@ export default function Captura() {
       metaGanancias: Number(form.metaGanancias),
       // El ranking se ordena automáticamente por volumen al guardar
       distribuidores: llenas
-        .map((f) => ({ nombre: f.nombre.trim(), volumen: Number(f.volumen) }))
+        .map((f) => ({ id: f.id.trim(), nombre: f.nombre.trim(), volumen: Number(f.volumen) }))
         .sort((a, b) => b.volumen - a.volumen),
     }
 
@@ -349,8 +398,8 @@ export default function Captura() {
             <div style={{ marginBottom: 16 }}>
               <p className="config-descripcion">
                 Pega tu lista completa, un distribuidor por línea, con el volumen al final.
-                Funciona con texto de WhatsApp, Excel o notas:
-                <br />«María González 5200» · «Pedro, 4800» · «Ana Torres: 3650»
+                Puedes incluir el ID al inicio. Funciona con texto de WhatsApp, Excel o notas:
+                <br />«María González 5200» · «Pedro, 4800» · «88412 Ana Torres 3650»
               </p>
               <textarea
                 rows={6}
@@ -377,6 +426,13 @@ export default function Captura() {
           {filas.map((fila, i) => (
             <div className="fila-dist" key={fila.clave}>
               <span className="num-fila">{i + 1}</span>
+              <input
+                type="text"
+                className="input-id"
+                placeholder="ID"
+                value={fila.id}
+                onChange={(e) => cambiarFila(fila.clave, 'id', e.target.value)}
+              />
               <input
                 type="text"
                 placeholder="Nombre del distribuidor"

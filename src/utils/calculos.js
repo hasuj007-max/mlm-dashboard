@@ -78,6 +78,30 @@ export function ranking(registro) {
 }
 
 /**
+ * Directorio histórico de distribuidores: agrupa todos los meses por
+ * distribuidor (por ID si lo tiene, si no por nombre) y acumula su volumen
+ * total. Devuelve la lista ordenada de mayor a menor volumen histórico.
+ */
+export function directorioDistribuidores(meses) {
+  const mapa = new Map()
+  for (const m of ordenarPorFecha(meses)) {
+    for (const d of m.distribuidores || []) {
+      const id = String(d.id ?? '').trim()
+      const clave = id ? `id:${id.toLowerCase()}` : `n:${d.nombre.trim().toLocaleLowerCase('es')}`
+      if (!mapa.has(clave)) {
+        mapa.set(clave, { clave, id, nombre: d.nombre, total: 0, meses: [] })
+      }
+      const reg = mapa.get(clave)
+      reg.nombre = d.nombre // siempre el nombre más reciente
+      if (id) reg.id = id
+      reg.total += d.volumen
+      reg.meses.push({ anio: m.anio, mes: m.mes, volumen: d.volumen })
+    }
+  }
+  return [...mapa.values()].sort((a, b) => b.total - a.total)
+}
+
+/**
  * Valida la estructura de datos importada desde un JSON de respaldo.
  * Devuelve { valido, error, meses } sin lanzar excepciones.
  */
@@ -95,7 +119,10 @@ export function validarImportacion(obj) {
       const distValidos =
         Array.isArray(m.distribuidores) &&
         m.distribuidores.every(
-          (d) => typeof d.nombre === 'string' && d.nombre.trim() && typeof d.volumen === 'number' && d.volumen >= 0
+          (d) =>
+            typeof d.nombre === 'string' && d.nombre.trim() &&
+            typeof d.volumen === 'number' && d.volumen >= 0 &&
+            (d.id == null || typeof d.id === 'string' || typeof d.id === 'number')
         )
       if (!numerosValidos || !fechaValida || !distValidos) {
         return { valido: false, error: 'El archivo tiene un formato inválido o datos corruptos.' }
@@ -116,7 +143,11 @@ export function validarImportacion(obj) {
       nuevosInicios: m.nuevosInicios,
       activos: m.activos,
       metaGanancias: m.metaGanancias,
-      distribuidores: m.distribuidores.map((d) => ({ nombre: d.nombre.trim(), volumen: d.volumen })),
+      distribuidores: m.distribuidores.map((d) => ({
+        id: String(d.id ?? '').trim(),
+        nombre: d.nombre.trim(),
+        volumen: d.volumen,
+      })),
     }))
     return { valido: true, meses: limpios }
   } catch {

@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar'
 import Inicio from './paginas/Inicio'
 import Dashboard from './paginas/Dashboard'
 import Captura from './paginas/Captura'
+import Distribuidores from './paginas/Distribuidores'
 import Historial from './paginas/Historial'
 import Configuracion from './paginas/Configuracion'
 
@@ -12,6 +13,7 @@ const PAGINAS = {
   inicio: Inicio,
   dashboard: Dashboard,
   captura: Captura,
+  distribuidores: Distribuidores,
   historial: Historial,
   configuracion: Configuracion,
 }
