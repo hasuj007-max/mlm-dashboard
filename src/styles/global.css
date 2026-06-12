@@ -304,23 +304,6 @@ input, select { font-family: inherit; }
   margin-bottom: 10px;
 }
 
-/* Aviso de datos demo */
-.aviso-demo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  background: var(--dorado-suave);
-  border: 1px solid rgba(232, 179, 75, 0.35);
-  color: var(--dorado);
-  border-radius: 14px;
-  padding: 14px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 22px;
-}
-
 /* ---------- Gauge de meta ---------- */
 
 .gauge-contenedor { display: flex; flex-direction: column; align-items: center; gap: 6px; }

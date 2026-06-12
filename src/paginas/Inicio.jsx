@@ -6,10 +6,10 @@ import { usd, num, etiquetaMes } from '../utils/formato'
 import Cambio from '../components/Cambio'
 
 export default function Inicio() {
-  const { mesesVisibles, esDemo, navegar } = useApp()
+  const { meses, navegar } = useApp()
 
-  const actual = mesMasReciente(mesesVisibles)
-  const anterior = mesAnterior(mesesVisibles, actual)
+  const actual = mesMasReciente(meses)
+  const anterior = mesAnterior(meses, actual)
 
   return (
     <div>
@@ -30,12 +30,6 @@ export default function Inicio() {
           </button>
         </div>
       </div>
-
-      {esDemo && (
-        <div className="aviso-demo">
-          <span>👋 Aún no tienes datos reales: las cifras de abajo son de ejemplo.</span>
-        </div>
-      )}
 
       {actual && (
         <div className="grid-accesos">

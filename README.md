@@ -34,7 +34,6 @@ Abre en el navegador la URL que muestra la terminal (normalmente `http://localho
 src/
   components/   Sidebar, Gauge, iconos, indicador de cambio, tooltip
   context/      AppContext: datos + localStorage + navegación + tema
-  data/         Datos de ejemplo (se muestran mientras no hay datos reales)
   paginas/      Inicio, Dashboard, Captura, Historial, Configuración
   styles/       global.css con variables de tema claro/oscuro
   utils/        Cálculos (% cambio, tendencia, validación) y formato (USD, pts)
@@ -45,4 +44,3 @@ src/
 - El **volumen** se mide en puntos (pts); las **ganancias** y **metas** en dólares (USD).
 - Los datos viven en el `localStorage` del navegador: si cambias de navegador
   o limpias datos del sitio, restaura desde tu respaldo JSON.
-- Los datos de ejemplo desaparecen solos al guardar tu primer mes real.

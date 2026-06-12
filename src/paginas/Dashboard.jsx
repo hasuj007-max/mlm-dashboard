@@ -52,14 +52,14 @@ function fraseMotivacional(pct) {
 }
 
 export default function Dashboard() {
-  const { mesesVisibles, esDemo, navegar, tema } = useApp()
+  const { meses, navegar, tema } = useApp()
   const colores = coloresGrafica(tema)
 
-  const actual = mesMasReciente(mesesVisibles)
-  const anterior = mesAnterior(mesesVisibles, actual)
+  const actual = mesMasReciente(meses)
+  const anterior = mesAnterior(meses, actual)
 
   // Series para las gráficas (orden cronológico)
-  const serie12 = ultimosMeses(mesesVisibles, 12).map((m) => ({
+  const serie12 = ultimosMeses(meses, 12).map((m) => ({
     nombre: etiquetaCorta(m),
     completo: etiquetaMes(m),
     ganancias: m.ganancias,
@@ -69,7 +69,7 @@ export default function Dashboard() {
   const serie3 = serie12.slice(-3)
 
   const pctMeta = actual?.metaGanancias > 0 ? (actual.ganancias / actual.metaGanancias) * 100 : 0
-  const rumbo = tendencia(mesesVisibles)
+  const rumbo = tendencia(meses)
   const top = ranking(actual)
   const liderVolumen = top[0]?.volumen || 0
   const medallas = ['🥇', '🥈', '🥉']
@@ -80,27 +80,46 @@ export default function Dashboard() {
     descenso: { texto: 'En descenso', icono: '↘', descripcion: 'Las ganancias bajaron en los últimos 3 meses. Hora de activar a tu equipo.' },
   }
 
+  // Sin meses registrados: estado vacío amigable en lugar de gráficas en cero
+  if (!actual) {
+    return (
+      <div>
+        <div className="encabezado">
+          <div>
+            <div className="overline">Panel ejecutivo</div>
+            <h1>Dashboard</h1>
+            <p>Sin datos todavía</p>
+          </div>
+        </div>
+        <div className="tarjeta">
+          <div className="vacio" style={{ padding: '56px 24px' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+            Tu dashboard está listo, solo falta alimentarlo.<br />
+            Captura tu primer mes y aquí verás tus ganancias, tu meta,
+            el ranking de tu equipo y la tendencia del negocio.
+            <div style={{ marginTop: 20 }}>
+              <button className="boton boton-primario" onClick={() => navegar('captura')}>
+                <IconoMas /> Capturar mi primer mes
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="encabezado">
         <div>
           <div className="overline">Panel ejecutivo</div>
           <h1>Dashboard</h1>
-          <p>{actual ? `Mostrando ${etiquetaMes(actual)}` : 'Sin datos'}</p>
+          <p>{`Mostrando ${etiquetaMes(actual)}`}</p>
         </div>
         <button className="boton boton-primario" onClick={() => navegar('captura')}>
           <IconoMas /> Capturar mes
         </button>
       </div>
-
-      {esDemo && (
-        <div className="aviso-demo">
-          <span>👋 Estás viendo datos de ejemplo. Captura tu primer mes real para empezar.</span>
-          <button className="boton boton-primario boton-chico" onClick={() => navegar('captura')}>
-            Capturar mi primer mes
-          </button>
-        </div>
-      )}
 
       <div className="grid-dashboard">
         {/* ===== Resumen del negocio ===== */}

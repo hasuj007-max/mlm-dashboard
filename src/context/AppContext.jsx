@@ -3,7 +3,6 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { idDeMes, ordenarPorFecha } from '../utils/calculos'
-import { DATOS_DEMO } from '../data/demo'
 
 const CLAVE_DATOS = 'mlm-dashboard-datos-v1'
 const CLAVE_TEMA = 'mlm-dashboard-tema'
@@ -39,9 +38,8 @@ export function AppProvider({ children }) {
     document.documentElement.dataset.tema = tema
   }, [tema])
 
-  /** true mientras no hay datos reales: el dashboard muestra el demo */
-  const esDemo = meses.length === 0
-  const mesesVisibles = esDemo ? DATOS_DEMO : meses
+  /** true mientras no se ha capturado ningún mes */
+  const sinDatos = meses.length === 0
 
   /** Muestra una notificación temporal */
   function avisar(mensaje, tipo = 'exito') {
@@ -88,7 +86,7 @@ export function AppProvider({ children }) {
   }
 
   const valor = {
-    meses, mesesVisibles, esDemo,
+    meses, sinDatos,
     pagina, navegar, editandoId,
     tema, setTema,
     toast, avisar,
