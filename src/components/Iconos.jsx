@@ -91,6 +91,39 @@ export const IconoSubida = () => (
   </svg>
 )
 
+export const IconoDolar = () => (
+  <svg {...base} width={21} height={21}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M15 9.5c-.5-1-1.5-1.5-3-1.5-1.8 0-2.8.9-2.8 2 0 2.8 6 1.4 6 4 0 1.2-1.2 2-3.2 2-1.6 0-2.6-.6-3-1.5" />
+    <path d="M12 6.5v11" />
+  </svg>
+)
+
+export const IconoUsuarioMas = () => (
+  <svg {...base} width={21} height={21}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6M22 11h-6" />
+  </svg>
+)
+
+export const IconoUsuarios = () => (
+  <svg {...base} width={21} height={21}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+)
+
+export const IconoCapas = () => (
+  <svg {...base} width={21} height={21}>
+    <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+    <path d="m2 17 10 5 10-5" />
+    <path d="m2 12 10 5 10-5" />
+  </svg>
+)
+
 export const IconoCheck = () => (
   <svg {...base} width={16} height={16}>
     <path d="M20 6 9 17l-5-5" />

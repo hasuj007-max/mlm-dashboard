@@ -35,7 +35,10 @@ export default function Gauge({ porcentaje }) {
           strokeWidth="14"
           strokeLinecap="round"
           strokeDasharray={`${progreso} ${circunferencia}`}
-          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+          style={{
+            transition: 'stroke-dasharray 0.6s ease',
+            filter: 'drop-shadow(0 0 7px rgba(232, 179, 75, 0.45))',
+          }}
         />
       </g>
 

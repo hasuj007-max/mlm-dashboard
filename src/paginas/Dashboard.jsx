@@ -2,7 +2,7 @@
 
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, LabelList,
+  XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ReferenceLine, Cell,
 } from 'recharts'
 import { useApp } from '../context/AppContext'
 import {
@@ -12,6 +12,28 @@ import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
 import Gauge from '../components/Gauge'
 import TooltipGrafica from '../components/TooltipGrafica'
+import { IconoDolar, IconoUsuarioMas, IconoUsuarios, IconoMas } from '../components/Iconos'
+
+/** Paleta para los avatares con iniciales del ranking */
+const COLORES_AVATAR = [
+  'linear-gradient(135deg, #e8b34b, #f7d488)',
+  'linear-gradient(135deg, #4d8df7, #8ab4ff)',
+  'linear-gradient(135deg, #9d7bf7, #c3adff)',
+  'linear-gradient(135deg, #3ddc84, #8af0b8)',
+  'linear-gradient(135deg, #f76d8d, #ffa8bc)',
+  'linear-gradient(135deg, #5ad0e0, #9ce8f2)',
+]
+
+/** Iniciales de un nombre: "María González" → "MG" */
+function iniciales(nombre) {
+  return nombre
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
 
 /** Colores de ejes/rejilla según el tema (los acentos no cambian) */
 function coloresGrafica(tema) {
@@ -61,8 +83,14 @@ export default function Dashboard() {
   return (
     <div>
       <div className="encabezado">
-        <h1>Dashboard</h1>
-        <p>{actual ? `Mostrando ${etiquetaMes(actual)}` : 'Sin datos'}</p>
+        <div>
+          <div className="overline">Panel ejecutivo</div>
+          <h1>Dashboard</h1>
+          <p>{actual ? `Mostrando ${etiquetaMes(actual)}` : 'Sin datos'}</p>
+        </div>
+        <button className="boton boton-primario" onClick={() => navegar('captura')}>
+          <IconoMas /> Capturar mes
+        </button>
       </div>
 
       {esDemo && (
@@ -79,25 +107,34 @@ export default function Dashboard() {
         <div className="tarjeta col-8">
           <div className="titulo-seccion">Resumen del negocio</div>
           <div className="fila-kpis">
-            <div>
-              <div className="kpi-cifra">{usd(actual?.ganancias)}</div>
-              <div className="kpi-etiqueta">
-                Ganancias del mes{' '}
-                <Cambio pct={cambioPct(actual?.ganancias, anterior?.ganancias)} />
+            <div className="kpi">
+              <div className="kpi-icono dorado"><IconoDolar /></div>
+              <div>
+                <div className="kpi-cifra">{usd(actual?.ganancias)}</div>
+                <div className="kpi-etiqueta">
+                  Ganancias del mes{' '}
+                  <Cambio pct={cambioPct(actual?.ganancias, anterior?.ganancias)} />
+                </div>
               </div>
             </div>
-            <div>
-              <div className="kpi-cifra">{num(actual?.nuevosInicios)}</div>
-              <div className="kpi-etiqueta">
-                Nuevos inicios{' '}
-                <Cambio pct={cambioPct(actual?.nuevosInicios, anterior?.nuevosInicios)} />
+            <div className="kpi">
+              <div className="kpi-icono verde"><IconoUsuarioMas /></div>
+              <div>
+                <div className="kpi-cifra">{num(actual?.nuevosInicios)}</div>
+                <div className="kpi-etiqueta">
+                  Nuevos inicios{' '}
+                  <Cambio pct={cambioPct(actual?.nuevosInicios, anterior?.nuevosInicios)} />
+                </div>
               </div>
             </div>
-            <div>
-              <div className="kpi-cifra">{num(actual?.activos)}</div>
-              <div className="kpi-etiqueta">
-                Distribuidores activos{' '}
-                <Cambio pct={cambioPct(actual?.activos, anterior?.activos)} />
+            <div className="kpi">
+              <div className="kpi-icono azul"><IconoUsuarios /></div>
+              <div>
+                <div className="kpi-cifra">{num(actual?.activos)}</div>
+                <div className="kpi-etiqueta">
+                  Distribuidores activos{' '}
+                  <Cambio pct={cambioPct(actual?.activos, anterior?.activos)} />
+                </div>
               </div>
             </div>
           </div>
@@ -122,6 +159,13 @@ export default function Dashboard() {
                 axisLine={false} tickLine={false} width={44}
               />
               <Tooltip content={<TooltipGrafica formatear={usd} />} cursor={{ stroke: colores.rejilla }} />
+              {actual?.metaGanancias > 0 && (
+                <ReferenceLine
+                  y={actual.metaGanancias}
+                  stroke="#e8b34b" strokeDasharray="6 6" strokeOpacity={0.55}
+                  label={{ value: 'Meta', position: 'insideTopRight', fill: '#e8b34b', fontSize: 11, fontWeight: 700 }}
+                />
+              )}
               <Area
                 type="monotone" dataKey="ganancias"
                 stroke="#4d8df7" strokeWidth={2.5}
@@ -161,6 +205,9 @@ export default function Dashboard() {
                   ) : (
                     <span className="ranking-posicion">{i + 1}</span>
                   )}
+                  <span className="avatar" style={{ background: COLORES_AVATAR[i % COLORES_AVATAR.length] }}>
+                    {iniciales(d.nombre)}
+                  </span>
                   <div className="ranking-info">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                       <span className="ranking-nombre">
@@ -186,8 +233,12 @@ export default function Dashboard() {
             <BarChart data={serie12.slice(-8)} margin={{ top: 22, right: 6, left: 6, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-barra" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e8b34b" />
-                  <stop offset="100%" stopColor="#4d8df7" />
+                  <stop offset="0%" stopColor="#4d8df7" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#4d8df7" stopOpacity={0.25} />
+                </linearGradient>
+                <linearGradient id="grad-barra-actual" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f7d488" />
+                  <stop offset="100%" stopColor="#d49a2e" stopOpacity={0.55} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={colores.rejilla} vertical={false} />
@@ -197,8 +248,12 @@ export default function Dashboard() {
                 axisLine={false} tickLine={false}
               />
               <Tooltip content={<TooltipGrafica formatear={(v) => `${v} inicios`} />} cursor={{ fill: 'transparent' }} />
-              <Bar dataKey="inicios" fill="url(#grad-barra)" radius={[8, 8, 0, 0]} maxBarSize={34}>
+              <Bar dataKey="inicios" radius={[8, 8, 0, 0]} maxBarSize={34}>
                 <LabelList dataKey="inicios" position="top" style={{ fill: colores.eje, fontSize: 12, fontWeight: 700 }} />
+                {serie12.slice(-8).map((m, i, arr) => (
+                  // El mes más reciente se destaca en dorado
+                  <Cell key={m.nombre} fill={i === arr.length - 1 ? 'url(#grad-barra-actual)' : 'url(#grad-barra)'} />
+                ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>

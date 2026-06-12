@@ -26,6 +26,7 @@ export default function Sidebar() {
       </div>
 
       <nav>
+        <div className="nav-seccion">Menú</div>
         {PAGINAS.map(({ id, etiqueta, Icono }) => (
           <button
             key={id}
