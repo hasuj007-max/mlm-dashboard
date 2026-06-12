@@ -140,12 +140,12 @@ export default function Captura() {
 
       // Intento 1: ID + Nombre + Volumen (el primer token lleva algún dígito)
       let id = ''
-      let m = limpia.match(/^([A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)[\s,;:\t]+(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
+      let m = limpia.match(/^([A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)[\s,;:\t]+(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
       if (m) {
         id = m[1]
       } else {
         // Intento 2: solo Nombre + Volumen
-        m = limpia.match(/^(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
+        m = limpia.match(/^(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
         if (m) m = [m[0], '', m[1], m[2]]
       }
 
@@ -200,8 +200,8 @@ export default function Captura() {
     const llenas = filas.filter((f) => f.nombre.trim() !== '' || f.volumen !== '' || f.id.trim() !== '')
     for (const f of llenas) {
       if (!f.nombre.trim()) errs.push('Hay un distribuidor sin nombre.')
+      // El volumen puede ser negativo (devoluciones), pero debe ser un número
       if (f.volumen === '' || isNaN(Number(f.volumen))) errs.push(`El volumen de «${f.nombre.trim() || '(sin nombre)'}» debe ser un número.`)
-      else if (Number(f.volumen) < 0) errs.push(`El volumen de «${f.nombre.trim()}» no puede ser negativo.`)
     }
 
     // Nombres o IDs duplicados dentro del mismo mes → advertir y confirmar
@@ -442,7 +442,7 @@ export default function Captura() {
                 onChange={(e) => cambiarFila(fila.clave, 'nombre', e.target.value)}
               />
               <input
-                type="number" min="0"
+                type="number"
                 className="input-volumen"
                 placeholder="Volumen"
                 value={fila.volumen}

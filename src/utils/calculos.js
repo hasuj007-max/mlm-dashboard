@@ -121,7 +121,8 @@ export function validarImportacion(obj) {
         m.distribuidores.every(
           (d) =>
             typeof d.nombre === 'string' && d.nombre.trim() &&
-            typeof d.volumen === 'number' && d.volumen >= 0 &&
+            // el volumen puede ser negativo (devoluciones del back office)
+            typeof d.volumen === 'number' && isFinite(d.volumen) &&
             (d.id == null || typeof d.id === 'string' || typeof d.id === 'number')
         )
       if (!numerosValidos || !fechaValida || !distValidos) {
