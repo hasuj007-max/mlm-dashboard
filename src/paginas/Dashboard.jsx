@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext'
 import {
   mesMasReciente, mesAnterior, cambioPct, tendencia, ultimosMeses, ranking,
 } from '../utils/calculos'
-import { mxn, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
+import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
 import Gauge from '../components/Gauge'
 import TooltipGrafica from '../components/TooltipGrafica'
@@ -80,7 +80,7 @@ export default function Dashboard() {
           <div className="titulo-seccion">Resumen del negocio</div>
           <div className="fila-kpis">
             <div>
-              <div className="kpi-cifra">{mxn(actual?.ganancias)}</div>
+              <div className="kpi-cifra">{usd(actual?.ganancias)}</div>
               <div className="kpi-etiqueta">
                 Ganancias del mes{' '}
                 <Cambio pct={cambioPct(actual?.ganancias, anterior?.ganancias)} />
@@ -121,7 +121,7 @@ export default function Dashboard() {
                 tickFormatter={(v) => `$${Math.round(v / 1000)}k`}
                 axisLine={false} tickLine={false} width={44}
               />
-              <Tooltip content={<TooltipGrafica formatear={mxn} />} cursor={{ stroke: colores.rejilla }} />
+              <Tooltip content={<TooltipGrafica formatear={usd} />} cursor={{ stroke: colores.rejilla }} />
               <Area
                 type="monotone" dataKey="ganancias"
                 stroke="#4d8df7" strokeWidth={2.5}
@@ -139,7 +139,7 @@ export default function Dashboard() {
             <Gauge porcentaje={pctMeta} />
             <div className="gauge-motivacion">{fraseMotivacional(pctMeta)}</div>
             <div className="gauge-detalle">
-              {mxn(actual?.ganancias)} de {mxn(actual?.metaGanancias)}
+              {usd(actual?.ganancias)} de {usd(actual?.metaGanancias)}
             </div>
           </div>
         </div>
@@ -213,7 +213,7 @@ export default function Dashboard() {
               </div>
               <ResponsiveContainer width="100%" height={90}>
                 <LineChart data={serie3} margin={{ top: 10, right: 16, left: 16, bottom: 5 }}>
-                  <Tooltip content={<TooltipGrafica formatear={mxn} />} cursor={false} />
+                  <Tooltip content={<TooltipGrafica formatear={usd} />} cursor={false} />
                   <Line
                     type="monotone" dataKey="ganancias"
                     stroke={rumbo === 'creciendo' ? '#3ddc84' : rumbo === 'descenso' ? '#ff5a5a' : '#e8b34b'}
@@ -228,26 +228,36 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ===== Volumen de red ===== */}
-        <div className="tarjeta col-4">
-          <div className="titulo-seccion">Volumen de red</div>
-          <div className="kpi-cifra" style={{ fontSize: 28 }}>{pts(actual?.volumenRed)}</div>
-          <div className="kpi-etiqueta" style={{ marginBottom: 12 }}>
-            vs. mes anterior{' '}
-            <Cambio pct={cambioPct(actual?.volumenRed, anterior?.volumenRed)} />
+        {/* ===== Volumen de red (evolución completa) ===== */}
+        <div className="tarjeta col-12">
+          <div className="titulo-seccion">Volumen de red · últimos 12 meses</div>
+          <div className="fila-kpis">
+            <div>
+              <div className="kpi-cifra" style={{ fontSize: 28 }}>{pts(actual?.volumenRed)}</div>
+              <div className="kpi-etiqueta">
+                vs. mes anterior{' '}
+                <Cambio pct={cambioPct(actual?.volumenRed, anterior?.volumenRed)} />
+              </div>
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={serie12.slice(-8)} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={serie12} margin={{ top: 12, right: 6, left: 6, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-area-dorado" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#e8b34b" stopOpacity={0.4} />
                   <stop offset="100%" stopColor="#e8b34b" stopOpacity={0} />
                 </linearGradient>
               </defs>
+              <CartesianGrid stroke={colores.rejilla} vertical={false} />
               <XAxis
                 dataKey="nombre"
-                tick={{ fill: colores.eje, fontSize: 11 }}
+                tick={{ fill: colores.eje, fontSize: 12 }}
                 axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: colores.eje, fontSize: 12 }}
+                tickFormatter={(v) => `${Math.round(v / 1000)}k`}
+                axisLine={false} tickLine={false} width={40}
               />
               <Tooltip content={<TooltipGrafica formatear={pts} />} cursor={{ stroke: colores.rejilla }} />
               <Area

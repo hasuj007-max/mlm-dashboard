@@ -2,7 +2,7 @@
 
 import { useApp } from '../context/AppContext'
 import { mesMasReciente, mesAnterior, cambioPct } from '../utils/calculos'
-import { mxn, num, etiquetaMes } from '../utils/formato'
+import { usd, num, etiquetaMes } from '../utils/formato'
 import Cambio from '../components/Cambio'
 
 export default function Inicio() {
@@ -41,7 +41,7 @@ export default function Inicio() {
         <div className="grid-accesos">
           <div className="tarjeta">
             <div className="titulo-seccion">Ganancias · {etiquetaMes(actual)}</div>
-            <div className="kpi-cifra">{mxn(actual.ganancias)}</div>
+            <div className="kpi-cifra">{usd(actual.ganancias)}</div>
             <div className="kpi-etiqueta">
               vs. mes anterior <Cambio pct={cambioPct(actual.ganancias, anterior?.ganancias)} />
             </div>

@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ordenarPorFecha } from '../utils/calculos'
-import { mxn, pts, num, etiquetaMes } from '../utils/formato'
+import { usd, pts, num, etiquetaMes } from '../utils/formato'
 
 export default function Historial() {
   const { meses, eliminarMes, navegar, avisar } = useApp()
@@ -55,7 +55,7 @@ export default function Historial() {
                 {ordenados.map((m) => (
                   <tr key={m.id}>
                     <td>{etiquetaMes(m)}</td>
-                    <td>{mxn(m.ganancias)}</td>
+                    <td>{usd(m.ganancias)}</td>
                     <td>{pts(m.volumenRed)}</td>
                     <td>{num(m.nuevosInicios)}</td>
                     <td>{num(m.activos)}</td>

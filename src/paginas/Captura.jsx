@@ -39,6 +39,9 @@ export default function Captura() {
   const [filas, setFilas] = useState([nuevaFila()])
   const [errores, setErrores] = useState([])
   const [duplicadosPendientes, setDuplicadosPendientes] = useState(null)
+  const [pegadoAbierto, setPegadoAbierto] = useState(false)
+  const [textoPegado, setTextoPegado] = useState('')
+  const [filaEnfocada, setFilaEnfocada] = useState(null) // fila recién creada con Enter
 
   useEffect(() => {
     if (mesEditado) {
@@ -76,6 +79,55 @@ export default function Captura() {
 
   function eliminarFila(clave) {
     setFilas((fs) => (fs.length > 1 ? fs.filter((f) => f.clave !== clave) : [nuevaFila()]))
+  }
+
+  /** Enter en el campo de volumen agrega y enfoca la siguiente fila */
+  function alPresionarEnter(evento) {
+    if (evento.key !== 'Enter') return
+    evento.preventDefault()
+    const fila = nuevaFila()
+    setFilas((fs) => [...fs, fila])
+    setFilaEnfocada(fila.clave)
+  }
+
+  /**
+   * Pegado rápido: convierte un texto con un distribuidor por línea
+   * ("Nombre 350", "Nombre, 350", "Nombre⇥350") en filas de la lista.
+   * Las líneas que no se entienden se quedan en el cuadro para corregirlas.
+   */
+  function agregarLista() {
+    const lineas = textoPegado.split('\n')
+    const nuevas = []
+    const noReconocidas = []
+
+    for (const linea of lineas) {
+      if (!linea.trim()) continue
+      const m = linea.trim().match(/^(.+?)[\s,;:\t]+\$?([\d][\d.,]*)\s*(?:pts)?$/i)
+      const nombre = m?.[1].replace(/[,;:\t]+$/, '').trim()
+      const volumen = m ? Number(m[2].replace(/,/g, '')) : NaN
+      if (!nombre || isNaN(volumen)) {
+        noReconocidas.push(linea)
+        continue
+      }
+      nuevas.push({ ...nuevaFila(), nombre, volumen: String(volumen) })
+    }
+
+    if (nuevas.length === 0) {
+      avisar('No se reconoció ninguna línea. Usa el formato "Nombre 350".', 'error')
+      return
+    }
+
+    // Reemplaza las filas que siguen vacías y agrega las nuevas al final
+    setFilas((fs) => {
+      const conDatos = fs.filter((f) => f.nombre.trim() !== '' || f.volumen !== '')
+      return [...conDatos, ...nuevas]
+    })
+    setTextoPegado(noReconocidas.join('\n'))
+    if (noReconocidas.length === 0) setPegadoAbierto(false)
+    avisar(
+      `✓ ${nuevas.length} distribuidores agregados` +
+        (noReconocidas.length ? ` · ${noReconocidas.length} líneas sin reconocer` : '')
+    )
   }
 
   /** Valida todo el formulario; devuelve { errores, advertenciaDuplicados } */
@@ -220,7 +272,7 @@ export default function Captura() {
           </div>
 
           <div className="campo">
-            <label>Ganancias totales del mes (MXN)</label>
+            <label>Ganancias totales del mes (USD)</label>
             <input
               type="number" min="0" placeholder="Ej. 38500"
               value={form.ganancias}
@@ -248,7 +300,7 @@ export default function Captura() {
           </div>
 
           <div className="campo">
-            <label>Meta de ganancias del mes (MXN)</label>
+            <label>Meta de ganancias del mes (USD)</label>
             <input
               type="number" min="0" placeholder="Ej. 40000"
               value={form.metaGanancias}
@@ -263,7 +315,40 @@ export default function Captura() {
           <p className="config-descripcion">
             Captura el volumen personal de cada distribuidor. El ranking se ordena solo.
             Los nombres se autocompletan con los de meses anteriores.
+            Tip: presiona <strong>Enter</strong> en el volumen para agregar la siguiente fila.
           </p>
+
+          <button
+            className="boton boton-secundario boton-chico"
+            style={{ marginBottom: 14 }}
+            onClick={() => setPegadoAbierto(!pegadoAbierto)}
+          >
+            ⚡ Pegado rápido (lista completa)
+          </button>
+
+          {pegadoAbierto && (
+            <div style={{ marginBottom: 16 }}>
+              <p className="config-descripcion">
+                Pega tu lista completa, un distribuidor por línea, con el volumen al final.
+                Funciona con texto de WhatsApp, Excel o notas:
+                <br />«María González 5200» · «Pedro, 4800» · «Ana Torres: 3650»
+              </p>
+              <textarea
+                rows={6}
+                style={{
+                  width: '100%', background: 'var(--fondo-2)', color: 'var(--texto)',
+                  border: '1px solid var(--borde)', borderRadius: 10, padding: '11px 14px',
+                  fontSize: 14, fontFamily: 'inherit', resize: 'vertical', outline: 'none',
+                }}
+                placeholder={'María González 5200\nPedro López 4800\nAna Torres 3650'}
+                value={textoPegado}
+                onChange={(e) => setTextoPegado(e.target.value)}
+              />
+              <button className="boton boton-primario boton-chico" style={{ marginTop: 10 }} onClick={agregarLista}>
+                Agregar lista
+              </button>
+            </div>
+          )}
 
           {/* Lista de nombres conocidos para el autocompletado del navegador */}
           <datalist id="nombres-conocidos">
@@ -278,6 +363,7 @@ export default function Captura() {
                 placeholder="Nombre del distribuidor"
                 list="nombres-conocidos"
                 value={fila.nombre}
+                autoFocus={fila.clave === filaEnfocada}
                 onChange={(e) => cambiarFila(fila.clave, 'nombre', e.target.value)}
               />
               <input
@@ -286,6 +372,7 @@ export default function Captura() {
                 placeholder="Volumen"
                 value={fila.volumen}
                 onChange={(e) => cambiarFila(fila.clave, 'volumen', e.target.value)}
+                onKeyDown={alPresionarEnter}
               />
               <button
                 className="boton-icono"

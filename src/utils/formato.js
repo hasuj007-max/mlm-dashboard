@@ -1,16 +1,16 @@
-// Utilidades de formato: moneda MXN, puntos de volumen y nombres de meses.
+// Utilidades de formato: moneda USD, puntos de volumen y nombres de meses.
 
-const formatoMXN = new Intl.NumberFormat('es-MX', {
+const formatoUSD = new Intl.NumberFormat('en-US', {
   style: 'currency',
-  currency: 'MXN',
+  currency: 'USD',
   maximumFractionDigits: 0,
 })
 
 const formatoNumero = new Intl.NumberFormat('es-MX')
 
-/** Formatea un monto como moneda MXN, ej. "$45,300" */
-export function mxn(valor) {
-  return formatoMXN.format(valor || 0)
+/** Formatea un monto como dólares, ej. "$45,300" */
+export function usd(valor) {
+  return formatoUSD.format(valor || 0)
 }
 
 /** Formatea el volumen en puntos, ej. "12,450 pts" */
