@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { useApp } from '../context/AppContext'
 import {
-  mesMasReciente, mesAnterior, cambioPct, tendencia, ultimosMeses, ranking,
+  mesMasReciente, mesAnterior, cambioPct, tendencia, ultimosMeses, ranking, esNuevo,
 } from '../utils/calculos'
 import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
@@ -162,8 +162,11 @@ export default function Dashboard() {
                     <span className="ranking-posicion">{i + 1}</span>
                   )}
                   <div className="ranking-info">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <span className="ranking-nombre">{d.nombre}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span className="ranking-nombre">
+                        {d.nombre}
+                        {esNuevo(d) && <span className="badge-nuevo">Nuevo</span>}
+                      </span>
                       <span className="ranking-volumen">{pts(d.volumen)}</span>
                     </div>
                     <div className="barra-progreso">

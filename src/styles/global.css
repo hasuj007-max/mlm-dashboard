@@ -247,6 +247,43 @@ input, select { font-family: inherit; }
   transition: width 0.5s ease;
 }
 
+/* Etiqueta de inscripción nueva (CV de 30 pts) */
+.badge-nuevo {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--verde);
+  background: var(--verde-suave);
+  border: 1px solid rgba(61, 220, 132, 0.35);
+  padding: 2px 8px;
+  border-radius: 99px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Pista bajo el campo "Personas nuevas" con el conteo detectado */
+.pista-nuevos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--verde);
+}
+
+.boton-pista {
+  background: var(--verde-suave);
+  border: 1px solid rgba(61, 220, 132, 0.35);
+  color: var(--verde);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.boton-pista:hover { filter: brightness(1.2); }
+
 .vacio {
   text-align: center;
   color: var(--texto-suave);

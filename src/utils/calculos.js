@@ -2,6 +2,19 @@
 // Todos los cálculos comparan contra el mes anterior REGISTRADO (el inmediato
 // en orden cronológico), por lo que funcionan aunque falten meses intermedios.
 
+/** CV exacto con el que un distribuidor cuenta como inscripción nueva */
+export const CV_INSCRIPCION = 30
+
+/** ¿Este distribuidor es una inscripción nueva? (CV de exactamente 30 pts) */
+export function esNuevo(distribuidor) {
+  return Number(distribuidor?.volumen) === CV_INSCRIPCION
+}
+
+/** Cuántas inscripciones nuevas (30 pts) hay en una lista de distribuidores */
+export function contarNuevos(distribuidores) {
+  return (distribuidores || []).filter(esNuevo).length
+}
+
 /** Identificador cronológico de un mes, ej. "2026-05" */
 export function idDeMes(anio, mes) {
   return `${anio}-${String(mes).padStart(2, '0')}`

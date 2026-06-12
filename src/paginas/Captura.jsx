@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { CV_INSCRIPCION, contarNuevos } from '../utils/calculos'
 import { MESES, etiquetaMes } from '../utils/formato'
 import { IconoMas, IconoBasura, IconoCheck } from '../components/Iconos'
 
@@ -42,6 +43,9 @@ export default function Captura() {
   const [pegadoAbierto, setPegadoAbierto] = useState(false)
   const [textoPegado, setTextoPegado] = useState('')
   const [filaEnfocada, setFilaEnfocada] = useState(null) // fila recién creada con Enter
+
+  // Inscripciones nuevas detectadas en la lista (CV de exactamente 30 pts)
+  const nuevosDetectados = contarNuevos(filas)
 
   useEffect(() => {
     if (mesEditado) {
@@ -288,6 +292,20 @@ export default function Captura() {
                 value={form.nuevosInicios}
                 onChange={(e) => cambiarCampo('nuevosInicios', e.target.value)}
               />
+              {nuevosDetectados > 0 && (
+                <span className="pista-nuevos">
+                  🆕 {nuevosDetectados} con {CV_INSCRIPCION} pts en tu lista
+                  {Number(form.nuevosInicios) !== nuevosDetectados && (
+                    <button
+                      type="button"
+                      className="boton-pista"
+                      onClick={() => cambiarCampo('nuevosInicios', String(nuevosDetectados))}
+                    >
+                      Usar {nuevosDetectados}
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
             <div className="campo">
               <label>Distribuidores activos</label>
@@ -315,6 +333,7 @@ export default function Captura() {
           <p className="config-descripcion">
             Captura el volumen personal de cada distribuidor. El ranking se ordena solo.
             Los nombres se autocompletan con los de meses anteriores.
+            Los que tengan <strong>{CV_INSCRIPCION} pts</strong> se marcan como inscripción nueva 🆕.
             Tip: presiona <strong>Enter</strong> en el volumen para agregar la siguiente fila.
           </p>
 
@@ -374,6 +393,9 @@ export default function Captura() {
                 onChange={(e) => cambiarFila(fila.clave, 'volumen', e.target.value)}
                 onKeyDown={alPresionarEnter}
               />
+              {Number(fila.volumen) === CV_INSCRIPCION && (
+                <span className="badge-nuevo">Nuevo</span>
+              )}
               <button
                 className="boton-icono"
                 title="Eliminar fila"
