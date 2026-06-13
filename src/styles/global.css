@@ -191,6 +191,21 @@ input, select { font-family: inherit; }
 .encabezado h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.4px; }
 .encabezado p { color: var(--texto-suave); font-size: 14px; margin-top: 6px; }
 
+/* Selector de mes / histórico del dashboard */
+.selector-mes {
+  background: var(--tarjeta-solida);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.selector-mes:focus, .selector-mes:hover { border-color: var(--dorado); }
+
 .overline {
   font-size: 11px;
   font-weight: 800;

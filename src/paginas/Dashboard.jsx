@@ -1,12 +1,15 @@
 // Dashboard principal: grid de tarjetas ejecutivas con KPIs y gráficas.
+// Permite elegir el mes a mostrar o ver el acumulado histórico completo.
 
+import { useState } from 'react'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ReferenceLine, Cell,
 } from 'recharts'
 import { useApp } from '../context/AppContext'
 import {
-  mesMasReciente, mesAnterior, cambioPct, tendencia, ultimosMeses, ranking, esNuevo,
+  mesAnterior, cambioPct, tendencia, ranking, esNuevo,
+  ordenarPorFecha, directorioDistribuidores,
 } from '../utils/calculos'
 import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
@@ -55,11 +58,29 @@ export default function Dashboard() {
   const { meses, navegar, tema } = useApp()
   const colores = coloresGrafica(tema)
 
-  const actual = mesMasReciente(meses)
-  const anterior = mesAnterior(meses, actual)
+  // Qué se muestra: '' = último mes, 'historico' = acumulado, o el id de un mes
+  const [vista, setVista] = useState('')
 
-  // Series para las gráficas (orden cronológico)
-  const serie12 = ultimosMeses(meses, 12).map((m) => ({
+  const orden = ordenarPorFecha(meses)
+  const ultimo = orden[orden.length - 1] || null
+  const esHistorico = vista === 'historico'
+  const actual = esHistorico ? null : orden.find((m) => m.id === vista) || ultimo
+  const anterior = esHistorico ? null : mesAnterior(meses, actual)
+
+  // Cifras mostradas: las del mes elegido, o la suma de todos los meses
+  const datos = esHistorico
+    ? {
+        ganancias: orden.reduce((s, m) => s + m.ganancias, 0),
+        nuevosInicios: orden.reduce((s, m) => s + m.nuevosInicios, 0),
+        activos: ultimo?.activos ?? 0,
+        volumenRed: orden.reduce((s, m) => s + m.volumenRed, 0),
+        metaGanancias: orden.reduce((s, m) => s + m.metaGanancias, 0),
+      }
+    : actual
+
+  // Series para las gráficas: hasta el mes elegido (o todo en histórico)
+  const visibles = esHistorico ? orden : orden.slice(0, orden.indexOf(actual) + 1)
+  const serie12 = visibles.slice(-12).map((m) => ({
     nombre: etiquetaCorta(m),
     completo: etiquetaMes(m),
     ganancias: m.ganancias,
@@ -68,9 +89,12 @@ export default function Dashboard() {
   }))
   const serie3 = serie12.slice(-3)
 
-  const pctMeta = actual?.metaGanancias > 0 ? (actual.ganancias / actual.metaGanancias) * 100 : 0
-  const rumbo = tendencia(meses)
-  const top = ranking(actual)
+  const pctMeta = datos?.metaGanancias > 0 ? (datos.ganancias / datos.metaGanancias) * 100 : 0
+  const rumbo = tendencia(visibles)
+  // Ranking: del mes elegido, o el top histórico por volumen acumulado
+  const top = esHistorico
+    ? directorioDistribuidores(meses).slice(0, 8).map((d) => ({ ...d, volumen: d.total }))
+    : ranking(actual)
   const liderVolumen = top[0]?.volumen || 0
   const medallas = ['🥇', '🥈', '🥉']
 
@@ -81,7 +105,7 @@ export default function Dashboard() {
   }
 
   // Sin meses registrados: estado vacío amigable en lugar de gráficas en cero
-  if (!actual) {
+  if (!ultimo) {
     return (
       <div>
         <div className="encabezado">
@@ -114,11 +138,28 @@ export default function Dashboard() {
         <div>
           <div className="overline">Panel ejecutivo</div>
           <h1>Dashboard</h1>
-          <p>{`Mostrando ${etiquetaMes(actual)}`}</p>
+          <p>
+            {esHistorico
+              ? `Acumulado de ${orden.length} ${orden.length === 1 ? 'mes' : 'meses'} (${etiquetaMes(orden[0])} – ${etiquetaMes(ultimo)})`
+              : `Mostrando ${etiquetaMes(actual)}`}
+          </p>
         </div>
-        <button className="boton boton-primario" onClick={() => navegar('captura')}>
-          <IconoMas /> Capturar mes
-        </button>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select
+            className="selector-mes"
+            value={esHistorico ? 'historico' : actual.id}
+            onChange={(e) => setVista(e.target.value === ultimo.id ? '' : e.target.value)}
+            title="Elige el mes a mostrar o el acumulado histórico"
+          >
+            <option value="historico">📊 Histórico (total)</option>
+            {[...orden].reverse().map((m) => (
+              <option key={m.id} value={m.id}>{etiquetaMes(m)}</option>
+            ))}
+          </select>
+          <button className="boton boton-primario" onClick={() => navegar('captura')}>
+            <IconoMas /> Capturar mes
+          </button>
+        </div>
       </div>
 
       <div className="grid-dashboard">
@@ -129,30 +170,30 @@ export default function Dashboard() {
             <div className="kpi">
               <div className="kpi-icono dorado"><IconoDolar /></div>
               <div>
-                <div className="kpi-cifra">{usd(actual?.ganancias)}</div>
+                <div className="kpi-cifra">{usd(datos?.ganancias)}</div>
                 <div className="kpi-etiqueta">
-                  Ganancias del mes{' '}
-                  <Cambio pct={cambioPct(actual?.ganancias, anterior?.ganancias)} />
+                  {esHistorico ? 'Ganancias totales' : 'Ganancias del mes'}{' '}
+                  {!esHistorico && <Cambio pct={cambioPct(actual?.ganancias, anterior?.ganancias)} />}
                 </div>
               </div>
             </div>
             <div className="kpi">
               <div className="kpi-icono verde"><IconoUsuarioMas /></div>
               <div>
-                <div className="kpi-cifra">{num(actual?.nuevosInicios)}</div>
+                <div className="kpi-cifra">{num(datos?.nuevosInicios)}</div>
                 <div className="kpi-etiqueta">
-                  Nuevos inicios{' '}
-                  <Cambio pct={cambioPct(actual?.nuevosInicios, anterior?.nuevosInicios)} />
+                  {esHistorico ? 'Nuevos inicios totales' : 'Nuevos inicios'}{' '}
+                  {!esHistorico && <Cambio pct={cambioPct(actual?.nuevosInicios, anterior?.nuevosInicios)} />}
                 </div>
               </div>
             </div>
             <div className="kpi">
               <div className="kpi-icono azul"><IconoUsuarios /></div>
               <div>
-                <div className="kpi-cifra">{num(actual?.activos)}</div>
+                <div className="kpi-cifra">{num(datos?.activos)}</div>
                 <div className="kpi-etiqueta">
-                  Distribuidores activos{' '}
-                  <Cambio pct={cambioPct(actual?.activos, anterior?.activos)} />
+                  {esHistorico ? 'Activos (último mes)' : 'Distribuidores activos'}{' '}
+                  {!esHistorico && <Cambio pct={cambioPct(actual?.activos, anterior?.activos)} />}
                 </div>
               </div>
             </div>
@@ -178,7 +219,7 @@ export default function Dashboard() {
                 axisLine={false} tickLine={false} width={44}
               />
               <Tooltip content={<TooltipGrafica formatear={usd} />} cursor={{ stroke: colores.rejilla }} />
-              {actual?.metaGanancias > 0 && (
+              {!esHistorico && actual?.metaGanancias > 0 && (
                 <ReferenceLine
                   y={actual.metaGanancias}
                   stroke="#e8b34b" strokeDasharray="6 6" strokeOpacity={0.55}
@@ -195,21 +236,25 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* ===== Meta mensual ===== */}
+        {/* ===== Meta mensual / acumulada ===== */}
         <div className="tarjeta col-4">
-          <div className="titulo-seccion">Meta mensual alcanzada</div>
+          <div className="titulo-seccion">
+            {esHistorico ? 'Meta acumulada alcanzada' : 'Meta mensual alcanzada'}
+          </div>
           <div className="gauge-contenedor">
             <Gauge porcentaje={pctMeta} />
             <div className="gauge-motivacion">{fraseMotivacional(pctMeta)}</div>
             <div className="gauge-detalle">
-              {usd(actual?.ganancias)} de {usd(actual?.metaGanancias)}
+              {usd(datos?.ganancias)} de {usd(datos?.metaGanancias)}
             </div>
           </div>
         </div>
 
         {/* ===== Top distribuidores ===== */}
         <div className="tarjeta col-4">
-          <div className="titulo-seccion">Top distribuidores del mes</div>
+          <div className="titulo-seccion">
+            {esHistorico ? 'Top distribuidores · histórico' : 'Top distribuidores del mes'}
+          </div>
           {top.length === 0 ? (
             <div className="vacio">
               Aún no hay distribuidores capturados este mes.<br />
@@ -231,7 +276,7 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                       <span className="ranking-nombre">
                         {d.nombre}
-                        {esNuevo(d) && <span className="badge-nuevo">Nuevo</span>}
+                        {!esHistorico && esNuevo(d) && <span className="badge-nuevo">Nuevo</span>}
                       </span>
                       <span className="ranking-volumen">{pts(d.volumen)}</span>
                     </div>
@@ -307,13 +352,21 @@ export default function Dashboard() {
 
         {/* ===== Volumen de red (evolución completa) ===== */}
         <div className="tarjeta col-12">
-          <div className="titulo-seccion">Volumen de red · últimos 12 meses</div>
+          <div className="titulo-seccion">
+            {esHistorico ? 'Volumen de red · total acumulado' : 'Volumen de red · últimos 12 meses'}
+          </div>
           <div className="fila-kpis">
             <div>
-              <div className="kpi-cifra" style={{ fontSize: 28 }}>{pts(actual?.volumenRed)}</div>
+              <div className="kpi-cifra" style={{ fontSize: 28 }}>{pts(datos?.volumenRed)}</div>
               <div className="kpi-etiqueta">
-                vs. mes anterior{' '}
-                <Cambio pct={cambioPct(actual?.volumenRed, anterior?.volumenRed)} />
+                {esHistorico ? (
+                  `suma de ${orden.length} meses`
+                ) : (
+                  <>
+                    vs. mes anterior{' '}
+                    <Cambio pct={cambioPct(actual?.volumenRed, anterior?.volumenRed)} />
+                  </>
+                )}
               </div>
             </div>
           </div>

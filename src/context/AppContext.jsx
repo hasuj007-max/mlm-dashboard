@@ -15,7 +15,9 @@ function cargarMeses() {
     const crudo = localStorage.getItem(CLAVE_DATOS)
     if (!crudo) return []
     const datos = JSON.parse(crudo)
-    return Array.isArray(datos.meses) ? datos.meses : []
+    if (!Array.isArray(datos.meses)) return []
+    // Normalizar el id por si el respaldo viene de una versión sin él
+    return datos.meses.map((m) => ({ ...m, id: m.id || idDeMes(m.anio, m.mes) }))
   } catch {
     return []
   }
