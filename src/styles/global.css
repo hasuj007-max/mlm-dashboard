@@ -319,6 +319,21 @@ input, select { font-family: inherit; }
   margin-bottom: 10px;
 }
 
+/* Panel de estadísticas de ganancias */
+.fila-estadisticas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+.estadistica {
+  background: var(--fondo-2);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.estadistica-cifra { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.estadistica-etq { font-size: 12px; color: var(--texto-suave); font-weight: 600; margin-top: 4px; }
+
 /* ---------- Gauge de meta ---------- */
 
 .gauge-contenedor { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -618,9 +633,35 @@ input, select { font-family: inherit; }
 .dist-mes-fila:last-child { border-bottom: none; }
 .dist-mes-fila span:last-child { font-weight: 700; color: var(--dorado); }
 
+.dist-fila-click { cursor: pointer; border-radius: 12px; transition: background 0.15s; }
+.dist-fila-click:hover { background: var(--tarjeta-hover); }
+
+/* Ficha individual del distribuidor */
+.ficha {
+  background: var(--fondo-2);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  padding: 16px;
+  margin: 0 0 12px 4px;
+  animation: aparecer 0.25s ease;
+}
+.ficha-stats { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 8px; }
+.ficha-stat-cifra { font-size: 18px; font-weight: 800; color: var(--dorado); font-variant-numeric: tabular-nums; }
+.ficha-stat-etq { font-size: 11px; color: var(--texto-suave); font-weight: 600; }
+
 .dist-total { text-align: right; flex-shrink: 0; }
 .dist-total-cifra { font-size: 18px; font-weight: 800; color: var(--dorado); font-variant-numeric: tabular-nums; }
 .dist-total-etiqueta { font-size: 11px; color: var(--texto-suave); font-weight: 600; }
+
+/* ---------- Reporte mensual ---------- */
+.reporte-preview {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+.reporte-preview svg {
+  box-shadow: var(--sombra);
+}
 
 /* ---------- Tabla de historial ---------- */
 

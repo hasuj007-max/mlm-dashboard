@@ -4,7 +4,7 @@
 import { useApp } from '../context/AppContext'
 import {
   IconoInicio, IconoDashboard, IconoCaptura, IconoHistorial,
-  IconoConfig, IconoSol, IconoLuna, IconoUsuarios,
+  IconoConfig, IconoSol, IconoLuna, IconoUsuarios, IconoPulso, IconoCompartir,
 } from './Iconos'
 
 const PAGINAS = [
@@ -12,6 +12,8 @@ const PAGINAS = [
   { id: 'dashboard', etiqueta: 'Dashboard', Icono: IconoDashboard },
   { id: 'captura', etiqueta: 'Captura de datos', Icono: IconoCaptura },
   { id: 'distribuidores', etiqueta: 'Distribuidores', Icono: IconoUsuarios },
+  { id: 'salud', etiqueta: 'Salud de la red', Icono: IconoPulso },
+  { id: 'reporte', etiqueta: 'Reporte mensual', Icono: IconoCompartir },
   { id: 'historial', etiqueta: 'Historial', Icono: IconoHistorial },
   { id: 'configuracion', etiqueta: 'Configuración', Icono: IconoConfig },
 ]

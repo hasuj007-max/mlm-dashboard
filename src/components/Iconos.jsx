@@ -124,6 +124,21 @@ export const IconoCapas = () => (
   </svg>
 )
 
+export const IconoCompartir = () => (
+  <svg {...base}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+  </svg>
+)
+
+export const IconoPulso = () => (
+  <svg {...base}>
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+  </svg>
+)
+
 export const IconoCheck = () => (
   <svg {...base} width={16} height={16}>
     <path d="M20 6 9 17l-5-5" />

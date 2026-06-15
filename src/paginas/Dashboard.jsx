@@ -9,7 +9,7 @@ import {
 import { useApp } from '../context/AppContext'
 import {
   mesAnterior, cambioPct, tendencia, ranking, esNuevo,
-  ordenarPorFecha, directorioDistribuidores,
+  ordenarPorFecha, directorioDistribuidores, estadisticasGanancias,
 } from '../utils/calculos'
 import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
@@ -91,6 +91,7 @@ export default function Dashboard() {
 
   const pctMeta = datos?.metaGanancias > 0 ? (datos.ganancias / datos.metaGanancias) * 100 : 0
   const rumbo = tendencia(visibles)
+  const stats = estadisticasGanancias(meses)
   // Ranking: del mes elegido, o el top histórico por volumen acumulado
   const top = esHistorico
     ? directorioDistribuidores(meses).slice(0, 8).map((d) => ({ ...d, volumen: d.total }))
@@ -399,6 +400,31 @@ export default function Dashboard() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* ===== Estadísticas de ganancias ===== */}
+        {stats && (
+          <div className="tarjeta col-12">
+            <div className="titulo-seccion">Estadísticas de ganancias · historial completo</div>
+            <div className="fila-estadisticas">
+              <div className="estadistica">
+                <div className="estadistica-cifra">{usd(stats.promedio)}</div>
+                <div className="estadistica-etq">Promedio mensual</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra">{usd(stats.promedio3)}</div>
+                <div className="estadistica-etq">Promedio últimos 3 meses</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra" style={{ color: 'var(--verde)' }}>{usd(stats.mejor.ganancias)}</div>
+                <div className="estadistica-etq">Mejor mes · {etiquetaMes(stats.mejor)}</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra" style={{ color: 'var(--rojo)' }}>{usd(stats.peor.ganancias)}</div>
+                <div className="estadistica-etq">Mes más bajo · {etiquetaMes(stats.peor)}</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
