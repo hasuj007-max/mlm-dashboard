@@ -200,6 +200,59 @@ export function serieDistribuidor(meses, clave) {
   })
 }
 
+/**
+ * Comparativa entre dos meses. Toma a los distribuidores con volumen >= minimo
+ * en el mes base (anterior) y reporta cómo les fue en el mes objetivo (actual):
+ * si subieron, se mantuvieron, bajaron o se cayeron (inactivos).
+ */
+export function comparativaMeses(meses, baseId, objetivoId, minimo = 40) {
+  const orden = ordenarPorFecha(meses)
+  const base = orden.find((m) => m.id === baseId)
+  const objetivo = orden.find((m) => m.id === objetivoId)
+  if (!base || !objetivo) return null
+
+  // Volumen de cada distribuidor en el mes objetivo
+  const volObjetivo = new Map()
+  for (const d of objetivo.distribuidores || []) {
+    volObjetivo.set(claveDistribuidor(d), d.volumen)
+  }
+
+  const prioridad = { inactivo: 0, bajo: 1, igual: 2, subio: 3 }
+  const filas = []
+  for (const d of base.distribuidores || []) {
+    if (d.volumen < minimo) continue
+    const clave = claveDistribuidor(d)
+    const actual = volObjetivo.get(clave) ?? 0
+    let estado
+    if (actual <= 0) estado = 'inactivo'
+    else if (actual > d.volumen) estado = 'subio'
+    else if (actual < d.volumen) estado = 'bajo'
+    else estado = 'igual'
+    filas.push({
+      clave, id: String(d.id ?? ''), nombre: d.nombre,
+      volumenBase: d.volumen, volumenActual: actual,
+      cambio: actual - d.volumen, estado,
+    })
+  }
+
+  // Los que hay que atender primero: inactivos, luego los que bajaron
+  filas.sort((a, b) =>
+    prioridad[a.estado] - prioridad[b.estado] || b.volumenBase - a.volumenBase
+  )
+
+  const resumen = {
+    total: filas.length,
+    activos: filas.filter((f) => f.estado !== 'inactivo').length,
+    inactivos: filas.filter((f) => f.estado === 'inactivo').length,
+    subieron: filas.filter((f) => f.estado === 'subio').length,
+    bajaron: filas.filter((f) => f.estado === 'bajo').length,
+    igual: filas.filter((f) => f.estado === 'igual').length,
+  }
+  resumen.continuidad = resumen.total ? (resumen.activos / resumen.total) * 100 : null
+
+  return { base, objetivo, minimo, filas, resumen }
+}
+
 /** Estadísticas de ganancias: promedio, mejor y peor mes */
 export function estadisticasGanancias(meses) {
   const orden = ordenarPorFecha(meses)

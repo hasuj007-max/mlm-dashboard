@@ -653,6 +653,51 @@ input, select { font-family: inherit; }
 .dist-total-cifra { font-size: 18px; font-weight: 800; color: var(--dorado); font-variant-numeric: tabular-nums; }
 .dist-total-etiqueta { font-size: 11px; color: var(--texto-suave); font-weight: 600; }
 
+/* ---------- Comparativa mes a mes ---------- */
+.controles-comp {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.controles-comp label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+.controles-comp .selector-mes { min-width: 160px; }
+.flecha-comp { font-size: 22px; color: var(--dorado); font-weight: 800; padding-bottom: 10px; }
+
+.comp-volumenes { font-size: 13px; font-weight: 600; color: var(--texto-suave); margin-top: 3px; }
+.comp-flecha { color: var(--dorado); font-weight: 800; margin: 0 4px; }
+
+.badge-estado {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1px solid;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.chip-filtro {
+  background: var(--fondo-2);
+  border: 1px solid var(--borde);
+  color: var(--texto-suave);
+  border-radius: 99px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.chip-filtro:hover { color: var(--texto); }
+.chip-filtro.activo { background: var(--dorado-suave); color: var(--dorado); border-color: var(--dorado); }
+
 /* ---------- Reporte mensual ---------- */
 .reporte-preview {
   display: flex;
