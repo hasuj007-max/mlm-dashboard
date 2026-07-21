@@ -45,6 +45,7 @@ export default function Historial() {
                   <th>Mes</th>
                   <th>Ganancias</th>
                   <th>Volumen de red</th>
+                  <th>Vol. promedio/activo</th>
                   <th>Nuevos inicios</th>
                   <th>Activos</th>
                   <th>Distribuidores</th>
@@ -57,6 +58,7 @@ export default function Historial() {
                     <td>{etiquetaMes(m)}</td>
                     <td>{usd(m.ganancias)}</td>
                     <td>{pts(m.volumenRed)}</td>
+                    <td>{m.activos > 0 ? pts(Math.round(m.volumenRed / m.activos)) : '—'}</td>
                     <td>{num(m.nuevosInicios)}</td>
                     <td>{num(m.activos)}</td>
                     <td>{m.distribuidores.length}</td>

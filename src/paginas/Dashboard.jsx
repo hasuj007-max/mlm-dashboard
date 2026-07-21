@@ -92,6 +92,18 @@ export default function Dashboard() {
   const pctMeta = datos?.metaGanancias > 0 ? (datos.ganancias / datos.metaGanancias) * 100 : 0
   const rumbo = tendencia(visibles)
   const stats = estadisticasGanancias(meses)
+
+  // Volumen promedio por distribuidor activo (volumen ÷ activos)
+  let promedioPorActivo
+  if (esHistorico) {
+    // promedio de los promedios mensuales, solo meses con activos
+    const conActivos = orden.filter((m) => m.activos > 0)
+    promedioPorActivo = conActivos.length
+      ? conActivos.reduce((s, m) => s + m.volumenRed / m.activos, 0) / conActivos.length
+      : null
+  } else {
+    promedioPorActivo = actual?.activos > 0 ? actual.volumenRed / actual.activos : null
+  }
   // Ranking: del mes elegido, o el top histórico por volumen acumulado
   const top = esHistorico
     ? directorioDistribuidores(meses).slice(0, 8).map((d) => ({ ...d, volumen: d.total }))
@@ -368,6 +380,14 @@ export default function Dashboard() {
                     <Cambio pct={cambioPct(actual?.volumenRed, anterior?.volumenRed)} />
                   </>
                 )}
+              </div>
+            </div>
+            <div>
+              <div className="kpi-cifra" style={{ fontSize: 28, color: 'var(--dorado)' }}>
+                {promedioPorActivo != null ? pts(Math.round(promedioPorActivo)) : '—'}
+              </div>
+              <div className="kpi-etiqueta">
+                volumen promedio por activo{esHistorico ? ' (promedio mensual)' : ` · ${num(actual?.activos)} activos`}
               </div>
             </div>
           </div>
