@@ -10,6 +10,31 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Auto-recuperación: si el navegador tiene cacheado un HTML viejo, pedirá
+      // un archivo .js que ya no existe (404) y la app quedaría en blanco.
+      // Al detectar ese fallo recargamos una sola vez saltando la caché.
+      window.addEventListener(
+        'error',
+        function (evento) {
+          var el = evento.target
+          if (!el || (el.tagName !== 'SCRIPT' && el.tagName !== 'LINK')) return
+          if (sessionStorage.getItem('mlm-recarga-cache')) return // ya lo intentamos
+          sessionStorage.setItem('mlm-recarga-cache', '1')
+          // URL distinta = el navegador no puede servir el HTML viejo de su caché
+          location.replace(location.pathname + '?v=' + Date.now())
+        },
+        true // fase de captura: los errores de carga no burbujean
+      )
+      // Si la app arrancó bien, limpiamos la marca para futuras recargas
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          if (document.getElementById('root').childElementCount > 0) {
+            sessionStorage.removeItem('mlm-recarga-cache')
+          }
+        }, 1500)
+      })
+    </script>
   </head>
   <body>
     <div id="root"></div>
