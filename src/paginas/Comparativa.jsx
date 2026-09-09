@@ -6,16 +6,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ordenarPorFecha, comparativaMeses } from '../utils/calculos'
 import { pts, num, etiquetaMes } from '../utils/formato'
-
-const COLORES_AVATAR = [
-  'linear-gradient(135deg, #e8b34b, #f7d488)',
-  'linear-gradient(135deg, #4d8df7, #8ab4ff)',
-  'linear-gradient(135deg, #9d7bf7, #c3adff)',
-  'linear-gradient(135deg, #3ddc84, #8af0b8)',
-  'linear-gradient(135deg, #f76d8d, #ffa8bc)',
-  'linear-gradient(135deg, #5ad0e0, #9ce8f2)',
-]
-const iniciales = (n) => n.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+import { COLORES_AVATAR, iniciales } from '../utils/tema'
 
 const ESTADO = {
   subio: { texto: 'Subió', color: 'var(--verde)', fondo: 'var(--verde-suave)', icono: '▲' },

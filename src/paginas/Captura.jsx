@@ -264,12 +264,15 @@ export default function Captura() {
   return (
     <div>
       <div className="encabezado">
-        <h1>{mesEditado ? `Editar ${etiquetaMes(mesEditado)}` : 'Captura de datos'}</h1>
-        <p>
-          {mesEditado
-            ? 'Modifica los datos del mes y vuelve a guardar.'
-            : 'Registra los resultados de tu negocio este mes. Solo te tomará un par de minutos.'}
-        </p>
+        <div>
+          <div className="overline">Registro</div>
+          <h1>{mesEditado ? `Editar ${etiquetaMes(mesEditado)}` : 'Captura de datos'}</h1>
+          <p>
+            {mesEditado
+              ? 'Modifica los datos del mes y vuelve a guardar.'
+              : 'Registra los resultados de tu negocio este mes. Solo te tomará un par de minutos.'}
+          </p>
+        </div>
       </div>
 
       {errores.length > 0 && (

@@ -9,16 +9,7 @@ import {
 import { useApp } from '../context/AppContext'
 import { analisisInscripciones, CV_INSCRIPCION } from '../utils/calculos'
 import { pts, num, MESES_CORTOS } from '../utils/formato'
-
-const COLORES_AVATAR = [
-  'linear-gradient(135deg, #e8b34b, #f7d488)',
-  'linear-gradient(135deg, #4d8df7, #8ab4ff)',
-  'linear-gradient(135deg, #9d7bf7, #c3adff)',
-  'linear-gradient(135deg, #3ddc84, #8af0b8)',
-  'linear-gradient(135deg, #f76d8d, #ffa8bc)',
-  'linear-gradient(135deg, #5ad0e0, #9ce8f2)',
-]
-const iniciales = (n) => n.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+import { paleta, COLORES_AVATAR, coloresGrafica, ejeX, ejeY, iniciales } from '../utils/tema'
 
 /** "2025-03" → "Mar 2025" */
 function etiquetaId(id) {
@@ -26,15 +17,10 @@ function etiquetaId(id) {
   return `${MESES_CORTOS[Number(m) - 1]} ${a}`
 }
 
-function coloresGrafica(tema) {
-  return tema === 'claro'
-    ? { eje: '#5d6880', rejilla: 'rgba(20,30,60,0.08)' }
-    : { eje: '#8b96ad', rejilla: 'rgba(255,255,255,0.07)' }
-}
-
 export default function Retencion() {
   const { meses, navegar, tema } = useApp()
   const colores = coloresGrafica(tema)
+  const P = paleta(tema)
   const a = useMemo(() => analisisInscripciones(meses), [meses])
 
   if (!a) {
@@ -115,12 +101,12 @@ export default function Retencion() {
             <BarChart data={serieCurva} margin={{ top: 24, right: 6, left: 6, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-ret" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4d8df7" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#4d8df7" stopOpacity={0.3} />
+                  <stop offset="0%" stopColor={P.azul} stopOpacity={0.95} />
+                  <stop offset="100%" stopColor={P.azul} stopOpacity={0.3} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={colores.rejilla} vertical={false} />
-              <XAxis dataKey="nombre" tick={{ fill: colores.eje, fontSize: 12 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="nombre" {...ejeX(colores)} />
               <YAxis
                 tick={{ fill: colores.eje, fontSize: 12 }}
                 tickFormatter={(v) => `${v}%`}
@@ -166,13 +152,13 @@ export default function Retencion() {
           <BarChart data={serieCohortes} margin={{ top: 24, right: 6, left: 6, bottom: 0 }}>
             <defs>
               <linearGradient id="grad-coh" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3ddc84" stopOpacity={0.95} />
-                <stop offset="100%" stopColor="#3ddc84" stopOpacity={0.3} />
+                <stop offset="0%" stopColor={P.verde} stopOpacity={0.95} />
+                <stop offset="100%" stopColor={P.verde} stopOpacity={0.3} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke={colores.rejilla} vertical={false} />
-            <XAxis dataKey="nombre" tick={{ fill: colores.eje, fontSize: 13, fontWeight: 700 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: colores.eje, fontSize: 12 }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} width={40} />
+            <XAxis dataKey="nombre" {...ejeX(colores, { tick: { fill: colores.eje, fontSize: 12, fontWeight: 700 } })} />
+            <YAxis {...ejeY(colores, { tickFormatter: (v) => `${v}%`, width: 40 })} />
             <Tooltip
               contentStyle={{ background: 'var(--tarjeta-solida)', border: '1px solid var(--borde)', borderRadius: 12 }}
               labelStyle={{ color: 'var(--texto)', fontWeight: 700 }}

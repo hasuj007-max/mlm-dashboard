@@ -5,12 +5,13 @@ import { useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ordenarPorFecha, mesMasReciente, ranking } from '../utils/calculos'
 import { usd, pts, num, etiquetaMes } from '../utils/formato'
+import { PALETA } from '../utils/tema'
 
 // Colores fijos del reporte (no dependen del tema, para que la imagen salga igual)
 const C = {
-  fondo1: '#131a2a', fondo2: '#0d1117', tarjeta: '#182034',
-  texto: '#f2f5fa', suave: '#8b96ad', borde: 'rgba(255,255,255,0.08)',
-  dorado: '#e8b34b', azul: '#4d8df7', verde: '#3ddc84',
+  fondo1: '#141a26', fondo2: '#0a0d14', tarjeta: '#171c28',
+  texto: '#eef1f7', suave: '#7c869c', borde: 'rgba(255,255,255,0.08)',
+  dorado: PALETA.dorado, azul: PALETA.azul, verde: PALETA.verde,
 }
 
 export default function Reporte() {

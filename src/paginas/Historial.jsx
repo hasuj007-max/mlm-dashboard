@@ -22,8 +22,11 @@ export default function Historial() {
   return (
     <div>
       <div className="encabezado">
-        <h1>Historial</h1>
-        <p>Todos los meses que has registrado. Puedes editarlos o eliminarlos.</p>
+        <div>
+          <div className="overline">Registro</div>
+          <h1>Historial</h1>
+          <p>Todos los meses que has registrado. Puedes editarlos o eliminarlos.</p>
+        </div>
       </div>
 
       <div className="tarjeta">

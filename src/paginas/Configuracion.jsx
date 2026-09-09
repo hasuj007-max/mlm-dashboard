@@ -61,8 +61,11 @@ export default function Configuracion() {
   return (
     <div>
       <div className="encabezado">
-        <h1>Configuración</h1>
-        <p>Respaldos de tu información y mantenimiento de la app.</p>
+        <div>
+          <div className="overline">Ajustes</div>
+          <h1>Configuración</h1>
+          <p>Respaldos de tu información y mantenimiento de la app.</p>
+        </div>
       </div>
 
       <div className="grid-config">

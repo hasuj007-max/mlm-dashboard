@@ -7,16 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from 'recharts'
 import { useApp } from '../context/AppContext'
 import { directorioDistribuidores, serieDistribuidor } from '../utils/calculos'
 import { pts, num, MESES_CORTOS } from '../utils/formato'
-
-const COLORES_AVATAR = [
-  'linear-gradient(135deg, #e8b34b, #f7d488)',
-  'linear-gradient(135deg, #4d8df7, #8ab4ff)',
-  'linear-gradient(135deg, #9d7bf7, #c3adff)',
-  'linear-gradient(135deg, #3ddc84, #8af0b8)',
-  'linear-gradient(135deg, #f76d8d, #ffa8bc)',
-  'linear-gradient(135deg, #5ad0e0, #9ce8f2)',
-]
-const iniciales = (n) => n.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+import { paleta, COLORES_AVATAR, coloresGrafica, ejeX, iniciales } from '../utils/tema'
 
 const TOPE_SIN_BUSQUEDA = 50
 
@@ -33,7 +24,8 @@ function Ficha({ meses, dist, tema }) {
   const activos = dist.meses.filter((m) => m.volumen > 0)
   const mejor = activos.reduce((a, b) => (b.volumen > a.volumen ? b : a), activos[0] || { volumen: 0 })
   const promedio = activos.length ? dist.total / activos.length : 0
-  const eje = tema === 'claro' ? '#5d6880' : '#8b96ad'
+  const colores = coloresGrafica(tema)
+  const P = paleta(tema)
 
   return (
     <div className="ficha">
@@ -56,17 +48,17 @@ function Ficha({ meses, dist, tema }) {
         <AreaChart data={serie} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="grad-ficha" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4d8df7" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="#4d8df7" stopOpacity={0} />
+              <stop offset="0%" stopColor={P.azul} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={P.azul} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="nombre" tick={{ fill: eje, fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+          <XAxis dataKey="nombre" {...ejeX(colores, { tick: { fill: colores.eje, fontSize: 10, fontWeight: 600 }, interval: 'preserveStartEnd' })} />
           <Tooltip
-            contentStyle={{ background: 'var(--tarjeta-solida)', border: '1px solid var(--borde)', borderRadius: 10, fontSize: 12 }}
+            contentStyle={{ background: 'var(--superficie)', border: '1px solid var(--borde-fuerte)', borderRadius: 9, boxShadow: 'var(--sombra-flotante)', fontSize: 12 }}
             labelStyle={{ color: 'var(--texto)', fontWeight: 700 }}
             formatter={(v) => [pts(v), 'Volumen']}
           />
-          <Area type="monotone" dataKey="volumen" stroke="#4d8df7" strokeWidth={2} fill="url(#grad-ficha)" dot={false} />
+          <Area type="monotone" dataKey="volumen" stroke={P.azul} strokeWidth={2} fill="url(#grad-ficha)" dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

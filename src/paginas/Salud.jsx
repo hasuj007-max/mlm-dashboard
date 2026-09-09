@@ -10,26 +10,12 @@ import {
   actividadPorMes, distribuidoresEnRiesgo, mesMasReciente, ordenarPorFecha,
 } from '../utils/calculos'
 import { pts, num, etiquetaMes, etiquetaCorta, MESES_CORTOS } from '../utils/formato'
-
-const COLORES_AVATAR = [
-  'linear-gradient(135deg, #e8b34b, #f7d488)',
-  'linear-gradient(135deg, #4d8df7, #8ab4ff)',
-  'linear-gradient(135deg, #9d7bf7, #c3adff)',
-  'linear-gradient(135deg, #3ddc84, #8af0b8)',
-  'linear-gradient(135deg, #f76d8d, #ffa8bc)',
-  'linear-gradient(135deg, #5ad0e0, #9ce8f2)',
-]
-const iniciales = (n) => n.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
-
-function coloresGrafica(tema) {
-  return tema === 'claro'
-    ? { eje: '#5d6880', rejilla: 'rgba(20,30,60,0.08)' }
-    : { eje: '#8b96ad', rejilla: 'rgba(255,255,255,0.07)' }
-}
+import { paleta, COLORES_AVATAR, coloresGrafica, ejeX, ejeY, iniciales } from '../utils/tema'
 
 export default function Salud() {
   const { meses, navegar, tema } = useApp()
   const colores = coloresGrafica(tema)
+  const P = paleta(tema)
   const [ventana, setVentana] = useState(3)
 
   const actividad = useMemo(() => actividadPorMes(meses), [meses])
@@ -109,26 +95,34 @@ export default function Salud() {
         <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={serie} margin={{ top: 12, right: 6, left: 6, bottom: 0 }}>
             <CartesianGrid stroke={colores.rejilla} vertical={false} />
-            <XAxis dataKey="nombre" tick={{ fill: colores.eje, fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: colores.eje, fontSize: 12 }} axisLine={false} tickLine={false} width={32} />
+            <XAxis dataKey="nombre" {...ejeX(colores)} />
+            <YAxis {...ejeY(colores, { width: 34 })} />
             <Tooltip
-              contentStyle={{ background: 'var(--tarjeta-solida)', border: '1px solid var(--borde)', borderRadius: 12 }}
+              contentStyle={{
+                background: 'var(--superficie)',
+                border: '1px solid var(--borde-fuerte)',
+                borderRadius: 9,
+                boxShadow: 'var(--sombra-flotante)',
+                fontSize: 12.5,
+              }}
               labelStyle={{ color: 'var(--texto)', fontWeight: 700 }}
+              cursor={{ fill: colores.rejilla }}
               formatter={(v, n) => [Math.abs(v), n]}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="nuevos" name="Nuevos" stackId="a" fill="#3ddc84" radius={[4, 4, 0, 0]} maxBarSize={26} />
-            <Bar dataKey="perdidos" name="Se fueron" stackId="a" fill="#ff5a5a" radius={[4, 4, 0, 0]} maxBarSize={26} />
-            <Line type="monotone" dataKey="activos" name="Activos" stroke="#4d8df7" strokeWidth={3} dot={false} />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+            <Bar dataKey="nuevos" name="Nuevos" stackId="a" fill={P.verde} radius={[4, 4, 0, 0]} maxBarSize={26} />
+            <Bar dataKey="perdidos" name="Se fueron" stackId="a" fill={P.rojo} radius={[4, 4, 0, 0]} maxBarSize={26} />
+            <Line type="monotone" dataKey="activos" name="Activos" stroke={P.azul} strokeWidth={2.5} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       {/* Lista de en riesgo */}
       <div className="tarjeta">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-          <div className="titulo-seccion" style={{ marginBottom: 0 }}>
-            A reactivar · activos antes, no en {etiquetaMes(ultimo)}
+        <div className="tarjeta-cabecera">
+          <div className="titulo-seccion">
+            A reactivar
+            <span className="sub">Activos antes, sin volumen en {etiquetaMes(ultimo)}</span>
           </div>
           <select className="selector-mes" value={ventana} onChange={(e) => setVentana(Number(e.target.value))}>
             <option value={1}>Mirar 1 mes atrás</option>
