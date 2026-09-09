@@ -9,7 +9,8 @@ import {
 import { useApp } from '../context/AppContext'
 import {
   mesAnterior, cambioPct, tendencia, ranking, esNuevo,
-  ordenarPorFecha, directorioDistribuidores, estadisticasGanancias,
+  ordenarPorFecha, directorioDistribuidores, estadisticasGanancias, analisisInscripciones,
+  CV_INSCRIPCION,
 } from '../utils/calculos'
 import { usd, pts, num, etiquetaMes, etiquetaCorta } from '../utils/formato'
 import Cambio from '../components/Cambio'
@@ -92,6 +93,7 @@ export default function Dashboard() {
   const pctMeta = datos?.metaGanancias > 0 ? (datos.ganancias / datos.metaGanancias) * 100 : 0
   const rumbo = tendencia(visibles)
   const stats = estadisticasGanancias(meses)
+  const retencion = analisisInscripciones(meses)
 
   // Volumen promedio por distribuidor activo (volumen ÷ activos)
   let promedioPorActivo
@@ -441,6 +443,43 @@ export default function Dashboard() {
               <div className="estadistica">
                 <div className="estadistica-cifra" style={{ color: 'var(--rojo)' }}>{usd(stats.peor.ganancias)}</div>
                 <div className="estadistica-etq">Mes más bajo · {etiquetaMes(stats.peor)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===== Retención de inscritos (resumen) ===== */}
+        {retencion && (
+          <div className="tarjeta col-12">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div className="titulo-seccion" style={{ marginBottom: 16 }}>
+                Retención de inscritos · los que entraron con {CV_INSCRIPCION} pts
+              </div>
+              <button className="boton boton-secundario boton-chico" style={{ marginBottom: 16 }}
+                onClick={() => navegar('retencion')}>
+                Ver análisis completo →
+              </button>
+            </div>
+            <div className="fila-estadisticas">
+              <div className="estadistica">
+                <div className="estadistica-cifra">{num(retencion.total)}</div>
+                <div className="estadistica-etq">Entraron en total</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra" style={{ color: 'var(--verde)' }}>
+                  {retencion.pctSiguen == null ? '—' : `${retencion.pctSiguen.toFixed(1)}%`}
+                </div>
+                <div className="estadistica-etq">Siguen activos ({num(retencion.siguen)})</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra" style={{ color: 'var(--rojo)' }}>
+                  {retencion.pctNuncaRecompraron == null ? '—' : `${retencion.pctNuncaRecompraron.toFixed(1)}%`}
+                </div>
+                <div className="estadistica-etq">Nunca recompraron ({num(retencion.nuncaRecompraron)})</div>
+              </div>
+              <div className="estadistica">
+                <div className="estadistica-cifra">{retencion.vidaPromedio.toFixed(1)} meses</div>
+                <div className="estadistica-etq">Vida promedio del inscrito</div>
               </div>
             </div>
           </div>

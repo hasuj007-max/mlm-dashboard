@@ -328,3 +328,147 @@ export function validarImportacion(obj) {
     return { valido: false, error: 'No se pudo leer el archivo.' }
   }
 }
+
+/**
+ * Análisis de retención de las inscripciones (distribuidores que aparecieron
+ * por primera vez con CV_INSCRIPCION pts exactos). Responde: cuántos entraron,
+ * cuántos siguen activos hoy, cuántos nunca recompraron, su vida promedio,
+ * la curva de retención (mes +1, +2, +3, +6, +12) y las cohortes por año.
+ *
+ * Solo considera meses que tengan lista de distribuidores capturada.
+ */
+export function analisisInscripciones(meses) {
+  const conListas = ordenarPorFecha(meses).filter((m) => (m.distribuidores || []).length > 0)
+  if (conListas.length < 2) return null
+
+  const ids = conListas.map((m) => m.id)
+  const ultimoId = ids[ids.length - 1]
+  const indice = new Map(ids.map((id, i) => [id, i]))
+
+  // Set de claves activas (volumen > 0) por mes, y nombre más reciente
+  const activos = new Map()
+  const nombres = new Map()
+  const volumenUltimo = new Map()
+  for (const m of conListas) {
+    const set = new Set()
+    for (const d of m.distribuidores) {
+      const k = claveDistribuidor(d)
+      nombres.set(k, d.nombre)
+      if (d.volumen > 0) set.add(k)
+      if (m.id === ultimoId) volumenUltimo.set(k, d.volumen)
+    }
+    activos.set(m.id, set)
+  }
+
+  // Primera aparición con exactamente CV_INSCRIPCION pts = inscripción
+  const inscritos = new Map() // clave -> mes de inscripción
+  for (const m of conListas) {
+    for (const d of m.distribuidores) {
+      const k = claveDistribuidor(d)
+      if (d.volumen === CV_INSCRIPCION && !inscritos.has(k)) inscritos.set(k, m.id)
+    }
+  }
+
+  const sigueActivo = (k) => activos.get(ultimoId).has(k)
+
+  let recienEntrados = 0 // entraron en el último mes: aún sin oportunidad
+  let siguen = 0
+  let sefueron = 0
+  let nuncaRecompraron = 0
+  const vidas = []
+  const sobrevivientes = []
+
+  for (const [k, mesIns] of inscritos) {
+    const i = indice.get(mesIns)
+    const posteriores = ids.slice(i + 1)
+    const mesesActivo = ids.slice(i).filter((id) => activos.get(id).has(k)).length
+    vidas.push(mesesActivo)
+
+    if (posteriores.length === 0) {
+      recienEntrados++
+      continue
+    }
+    if (sigueActivo(k)) {
+      siguen++
+      sobrevivientes.push({
+        clave: k,
+        nombre: nombres.get(k),
+        mesIngreso: mesIns,
+        mesesActivo,
+        volumenActual: volumenUltimo.get(k) || 0,
+      })
+    } else {
+      sefueron++
+      if (!posteriores.some((id) => activos.get(id).has(k))) nuncaRecompraron++
+    }
+  }
+
+  const evaluables = inscritos.size - recienEntrados
+
+  // Curva de retención: % que sigue activo N meses después de entrar
+  const curva = [1, 2, 3, 6, 12].map((n) => {
+    let conOportunidad = 0
+    let activosN = 0
+    for (const [k, mesIns] of inscritos) {
+      const i = indice.get(mesIns)
+      if (i + n < ids.length) {
+        conOportunidad++
+        if (activos.get(ids[i + n]).has(k)) activosN++
+      }
+    }
+    return {
+      n,
+      conOportunidad,
+      activos: activosN,
+      pct: conOportunidad ? (activosN / conOportunidad) * 100 : null,
+    }
+  })
+
+  // Cohortes por año de entrada
+  const porAnio = new Map()
+  for (const [k, mesIns] of inscritos) {
+    const i = indice.get(mesIns)
+    const anio = mesIns.slice(0, 4)
+    if (!porAnio.has(anio)) porAnio.set(anio, { anio, total: 0, siguienteMes: 0, vidaTotal: 0, inscritos: 0 })
+    const c = porAnio.get(anio)
+    c.inscritos++
+    c.vidaTotal += ids.slice(i).filter((id) => activos.get(id).has(k)).length
+    if (i + 1 < ids.length) {
+      c.total++
+      if (activos.get(ids[i + 1]).has(k)) c.siguienteMes++
+    }
+  }
+  const cohortes = [...porAnio.values()]
+    .sort((a, b) => a.anio.localeCompare(b.anio))
+    .map((c) => ({
+      ...c,
+      pctSiguienteMes: c.total ? (c.siguienteMes / c.total) * 100 : null,
+      vidaPromedio: c.inscritos ? c.vidaTotal / c.inscritos : 0,
+    }))
+
+  const ordenadas = [...vidas].sort((a, b) => a - b)
+  const mediana = ordenadas.length
+    ? ordenadas.length % 2
+      ? ordenadas[(ordenadas.length - 1) / 2]
+      : (ordenadas[ordenadas.length / 2 - 1] + ordenadas[ordenadas.length / 2]) / 2
+    : 0
+
+  return {
+    desde: ids[0],
+    hasta: ultimoId,
+    mesesAnalizados: ids.length,
+    total: inscritos.size,
+    recienEntrados,
+    evaluables,
+    siguen,
+    sefueron,
+    nuncaRecompraron,
+    pctSiguen: evaluables ? (siguen / evaluables) * 100 : null,
+    pctNuncaRecompraron: evaluables ? (nuncaRecompraron / evaluables) * 100 : null,
+    vidaPromedio: vidas.length ? vidas.reduce((s, v) => s + v, 0) / vidas.length : 0,
+    vidaMediana: mediana,
+    curva,
+    cohortes,
+    sobrevivientes: sobrevivientes.sort((a, b) => b.mesesActivo - a.mesesActivo),
+  }
+}
