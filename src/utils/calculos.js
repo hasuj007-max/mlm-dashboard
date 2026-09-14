@@ -86,15 +86,6 @@ export function claveDistribuidor(d) {
   return id ? `id:${id.toLowerCase()}` : `n:${d.nombre.trim().toLocaleLowerCase('es')}`
 }
 
-/** Conjunto de claves de distribuidores ACTIVOS (volumen > 0) en un mes */
-function clavesActivas(registro) {
-  const set = new Set()
-  for (const d of registro?.distribuidores || []) {
-    if (d.volumen > 0) set.add(claveDistribuidor(d))
-  }
-  return set
-}
-
 /**
  * Directorio histórico de distribuidores: agrupa todos los meses por
  * distribuidor (por ID si lo tiene, si no por nombre) y acumula su volumen
@@ -117,79 +108,6 @@ export function directorioDistribuidores(meses) {
     }
   }
   return [...mapa.values()].sort((a, b) => b.total - a.total)
-}
-
-/**
- * Actividad de la red mes a mes. Para cada mes calcula:
- * - activos: distribuidores con volumen > 0 ese mes
- * - nuevos: claves que aparecen activas por primera vez en la historia
- * - perdidos: claves que estaban activas el mes anterior y este mes ya no
- * - retenidos: claves activas que también lo estaban el mes anterior
- * - tasaRetencion: % de los activos del mes previo que siguen activos
- */
-export function actividadPorMes(meses) {
-  const orden = ordenarPorFecha(meses)
-  const vistos = new Set()
-  let previo = new Set()
-  const resultado = []
-
-  for (const m of orden) {
-    const activos = clavesActivas(m)
-    let nuevos = 0
-    for (const k of activos) if (!vistos.has(k)) nuevos++
-    let perdidos = 0
-    for (const k of previo) if (!activos.has(k)) perdidos++
-    let retenidos = 0
-    for (const k of activos) if (previo.has(k)) retenidos++
-
-    resultado.push({
-      id: m.id, anio: m.anio, mes: m.mes,
-      activos: activos.size,
-      nuevos,
-      perdidos,
-      retenidos,
-      tasaRetencion: previo.size ? (retenidos / previo.size) * 100 : null,
-    })
-
-    for (const k of activos) vistos.add(k)
-    previo = activos
-  }
-  return resultado
-}
-
-/**
- * Distribuidores EN RIESGO: estuvieron activos en alguno de los últimos
- * `ventana` meses previos, pero NO en el último mes registrado.
- * Devuelve a quién reactivar, con su último volumen y mes activo.
- */
-export function distribuidoresEnRiesgo(meses, ventana = 3) {
-  const orden = ordenarPorFecha(meses)
-  if (orden.length < 2) return []
-
-  const ultimo = orden[orden.length - 1]
-  const activosUltimo = clavesActivas(ultimo)
-  const recientes = orden.slice(Math.max(0, orden.length - 1 - ventana), orden.length - 1)
-
-  const mapa = new Map()
-  for (const m of recientes) {
-    for (const d of m.distribuidores || []) {
-      if (d.volumen <= 0) continue
-      const clave = claveDistribuidor(d)
-      if (activosUltimo.has(clave)) continue // sigue activo, no está en riesgo
-      const reg = mapa.get(clave) || {
-        clave, id: String(d.id ?? ''), nombre: d.nombre,
-        ultimoVolumen: 0, ultimoAnio: m.anio, ultimoMes: m.mes, mesesActivo: 0,
-      }
-      reg.nombre = d.nombre
-      if (d.id) reg.id = String(d.id)
-      reg.ultimoVolumen = d.volumen
-      reg.ultimoAnio = m.anio
-      reg.ultimoMes = m.mes
-      reg.mesesActivo++
-      mapa.set(clave, reg)
-    }
-  }
-  return [...mapa.values()].sort((a, b) => b.ultimoVolumen - a.ultimoVolumen)
 }
 
 /** Serie de volumen de un distribuidor (por clave) en todos los meses, con ceros */

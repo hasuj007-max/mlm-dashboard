@@ -5,7 +5,7 @@ import { Fragment } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   IconoInicio, IconoDashboard, IconoCaptura, IconoHistorial,
-  IconoConfig, IconoSol, IconoLuna, IconoUsuarios, IconoPulso, IconoCompartir, IconoComparativa,
+  IconoConfig, IconoSol, IconoLuna, IconoUsuarios, IconoCompartir, IconoComparativa,
   IconoRetencion,
 } from './Iconos'
 
@@ -22,7 +22,6 @@ const GRUPOS = [
     titulo: 'Mi equipo',
     paginas: [
       { id: 'distribuidores', etiqueta: 'Distribuidores', Icono: IconoUsuarios },
-      { id: 'salud', etiqueta: 'Salud de la red', Icono: IconoPulso },
       { id: 'retencion', etiqueta: 'Retención', Icono: IconoRetencion },
     ],
   },

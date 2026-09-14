@@ -6,7 +6,6 @@ import Inicio from './paginas/Inicio'
 import Dashboard from './paginas/Dashboard'
 import Captura from './paginas/Captura'
 import Distribuidores from './paginas/Distribuidores'
-import Salud from './paginas/Salud'
 import Retencion from './paginas/Retencion'
 import Comparativa from './paginas/Comparativa'
 import Reporte from './paginas/Reporte'
@@ -18,7 +17,6 @@ const PAGINAS = {
   dashboard: Dashboard,
   captura: Captura,
   distribuidores: Distribuidores,
-  salud: Salud,
   retencion: Retencion,
   comparativa: Comparativa,
   reporte: Reporte,

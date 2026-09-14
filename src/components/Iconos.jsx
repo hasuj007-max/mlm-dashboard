@@ -148,12 +148,6 @@ export const IconoCompartir = () => (
   </svg>
 )
 
-export const IconoPulso = () => (
-  <svg {...base}>
-    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-  </svg>
-)
-
 export const IconoCheck = () => (
   <svg {...base} width={16} height={16}>
     <path d="M20 6 9 17l-5-5" />
