@@ -1,29 +1,58 @@
-// Captura manual de datos del mes: formulario general + distribuidores
-// fila por fila con autocompletado de nombres usados en meses anteriores.
-// También funciona como pantalla de edición cuando se llega desde Historial.
+// Captura de datos del mes: formulario general + lista de distribuidores
+// (pegada del back office, subida como archivo o fila por fila). Personas
+// nuevas y activos se calculan solos de la lista. También funciona como
+// pantalla de edición cuando se llega desde Historial.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { CV_INSCRIPCION, contarNuevos } from '../utils/calculos'
-import { MESES, etiquetaMes } from '../utils/formato'
-import { IconoMas, IconoBasura, IconoCheck } from '../components/Iconos'
+import { CV_INSCRIPCION, contarNuevos, contarActivos } from '../utils/calculos'
+import { MESES, etiquetaMes, num, pts } from '../utils/formato'
+import { IconoMas, IconoBasura, IconoCheck, IconoSubida } from '../components/Iconos'
 
-/** Estado inicial del formulario (mes actual por defecto) */
+/** Estado inicial del formulario: el mes anterior, que es el que acaba de cerrar */
 function formularioVacio() {
   const hoy = new Date()
+  const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1) // en enero da diciembre del año pasado
   return {
-    anio: hoy.getFullYear(),
-    mes: hoy.getMonth() + 1,
+    anio: anterior.getFullYear(),
+    mes: anterior.getMonth() + 1,
     volumenRed: '',
     ganancias: '',
-    nuevosInicios: '',
-    activos: '',
     metaGanancias: '',
   }
 }
 
 let contadorFila = 0
 const nuevaFila = () => ({ clave: ++contadorFila, id: '', nombre: '', volumen: '' })
+
+/**
+ * Convierte una línea de la lista en { id, nombre, volumen } o null.
+ * Acepta "Nombre 350", "Nombre, 350", "Nombre⇥350", con ID al inicio
+ * ("12345 Nombre 350", el ID lleva algún dígito) y el formato del back
+ * office, que antepone una letra al ID: "N⇥123456701⇥NOMBRE⇥420.00".
+ */
+function interpretarLinea(linea) {
+  const limpia = linea
+    .replace(/"/g, '') // comillas de CSV
+    .trim()
+    .replace(/^[A-Za-z][\s,;\t]+(?=[A-Za-z0-9.-]*\d)/, '') // marcador "N"/"Y" del back office
+
+  // Intento 1: ID + Nombre + Volumen (el primer token lleva algún dígito)
+  let id = ''
+  let m = limpia.match(/^([A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)[\s,;:\t]+(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
+  if (m) {
+    id = m[1]
+  } else {
+    // Intento 2: solo Nombre + Volumen
+    m = limpia.match(/^(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
+    if (m) m = [m[0], '', m[1], m[2]]
+  }
+
+  const nombre = m?.[2].replace(/[,;:\t]+$/, '').replace(/\s+/g, ' ').trim()
+  const volumen = m ? Number(m[3].replace(/,/g, '')) : NaN
+  if (!nombre || isNaN(volumen)) return null
+  return { id, nombre, volumen }
+}
 
 export default function Captura() {
   const {
@@ -40,12 +69,19 @@ export default function Captura() {
   const [filas, setFilas] = useState([nuevaFila()])
   const [errores, setErrores] = useState([])
   const [duplicadosPendientes, setDuplicadosPendientes] = useState(null)
-  const [pegadoAbierto, setPegadoAbierto] = useState(false)
+  const [pegadoAbierto, setPegadoAbierto] = useState(true)
   const [textoPegado, setTextoPegado] = useState('')
   const [filaEnfocada, setFilaEnfocada] = useState(null) // fila recién creada con Enter
 
-  // Inscripciones nuevas detectadas en la lista (CV de exactamente 30 pts)
-  const nuevosDetectados = contarNuevos(filas)
+  const inputArchivo = useRef(null)
+
+  // Lo que se calcula solo de la lista: nuevos (CV de exactamente 30 pts),
+  // activos (volumen mayor a 0) y la suma de volumen para cuadrar con la red
+  const filasConNombre = filas.filter((f) => f.nombre.trim() !== '')
+  const hayLista = filasConNombre.length > 0
+  const nuevosDetectados = contarNuevos(filasConNombre)
+  const activosDetectados = contarActivos(filasConNombre)
+  const sumaLista = Math.round(filasConNombre.reduce((s, f) => s + (Number(f.volumen) || 0), 0) * 100) / 100
 
   // Último ID conocido de cada nombre (para autollenar el ID al escribir un
   // nombre que ya existe en meses anteriores)
@@ -67,8 +103,6 @@ export default function Captura() {
         mes: mesEditado.mes,
         volumenRed: String(mesEditado.volumenRed),
         ganancias: String(mesEditado.ganancias),
-        nuevosInicios: String(mesEditado.nuevosInicios),
-        activos: String(mesEditado.activos),
         metaGanancias: String(mesEditado.metaGanancias),
       })
       setFilas(
@@ -85,6 +119,8 @@ export default function Captura() {
       setForm(formularioVacio())
       setFilas([nuevaFila()])
     }
+    // El cuadro de pegado se abre solo cuando todavía no hay lista
+    setPegadoAbierto(!mesEditado?.distribuidores.length)
     setErrores([])
     setDuplicadosPendientes(null)
   }, [mesEditado])
@@ -124,42 +160,24 @@ export default function Captura() {
   }
 
   /**
-   * Pegado rápido: convierte un texto con un distribuidor por línea en filas.
-   * Acepta "Nombre 350", "Nombre, 350", "Nombre⇥350" y también con ID al
-   * inicio: "12345 Nombre 350" (el ID debe contener al menos un dígito).
-   * Las líneas que no se entienden se quedan en el cuadro para corregirlas.
+   * Convierte el texto de la lista (un distribuidor por línea) en filas.
+   * Las líneas sin ningún número (encabezados, títulos) se ignoran; las que
+   * tienen números pero no se entienden se quedan en el cuadro para corregirlas.
    */
-  function agregarLista() {
-    const lineas = textoPegado.split('\n')
+  function procesarTexto(texto) {
     const nuevas = []
     const noReconocidas = []
 
-    for (const linea of lineas) {
-      if (!linea.trim()) continue
-      const limpia = linea.trim()
-
-      // Intento 1: ID + Nombre + Volumen (el primer token lleva algún dígito)
-      let id = ''
-      let m = limpia.match(/^([A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)[\s,;:\t]+(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
-      if (m) {
-        id = m[1]
-      } else {
-        // Intento 2: solo Nombre + Volumen
-        m = limpia.match(/^(.+?)[\s,;:\t]+\$?(-?[\d][\d.,]*)\s*(?:pts)?$/i)
-        if (m) m = [m[0], '', m[1], m[2]]
-      }
-
-      const nombre = m?.[2].replace(/[,;:\t]+$/, '').trim()
-      const volumen = m ? Number(m[3].replace(/,/g, '')) : NaN
-      if (!nombre || isNaN(volumen)) {
-        noReconocidas.push(linea)
-        continue
-      }
-      nuevas.push({ ...nuevaFila(), id, nombre, volumen: String(volumen) })
+    for (const linea of texto.split(/\r?\n/)) {
+      if (!/\d/.test(linea)) continue
+      const d = interpretarLinea(linea)
+      if (d) nuevas.push({ ...nuevaFila(), id: d.id, nombre: d.nombre, volumen: String(d.volumen) })
+      else noReconocidas.push(linea)
     }
 
     if (nuevas.length === 0) {
-      avisar('No se reconoció ninguna línea. Usa el formato "Nombre 350".', 'error')
+      setTextoPegado(texto)
+      avisar('No se reconoció ninguna línea. Usa el formato "ID Nombre 350" o "Nombre 350".', 'error')
       return
     }
 
@@ -176,14 +194,23 @@ export default function Captura() {
     )
   }
 
+  /** Sube la lista como archivo de texto (.txt o .csv exportado del back office) */
+  function subirArchivo(evento) {
+    const archivo = evento.target.files?.[0]
+    evento.target.value = '' // permitir volver a elegir el mismo archivo
+    if (!archivo) return
+    const lector = new FileReader()
+    lector.onload = () => procesarTexto(String(lector.result))
+    lector.onerror = () => avisar('No se pudo leer el archivo.', 'error')
+    lector.readAsText(archivo)
+  }
+
   /** Valida todo el formulario; devuelve { errores, advertenciaDuplicados } */
   function validar() {
     const errs = []
     const numericos = [
       ['volumenRed', 'Volumen total de la red'],
       ['ganancias', 'Ganancias totales'],
-      ['nuevosInicios', 'Personas nuevas'],
-      ['activos', 'Distribuidores activos'],
       ['metaGanancias', 'Meta de ganancias'],
     ]
     for (const [campo, etiqueta] of numericos) {
@@ -238,18 +265,20 @@ export default function Captura() {
     }
     setDuplicadosPendientes(null)
 
+    // El ranking se ordena automáticamente por volumen al guardar
+    const distribuidores = llenas
+      .map((f) => ({ id: f.id.trim(), nombre: f.nombre.trim(), volumen: Number(f.volumen) }))
+      .sort((a, b) => b.volumen - a.volumen)
+
     const registro = {
       anio: Number(form.anio),
       mes: Number(form.mes),
       volumenRed: Number(form.volumenRed),
       ganancias: Number(form.ganancias),
-      nuevosInicios: Number(form.nuevosInicios),
-      activos: Number(form.activos),
+      nuevosInicios: contarNuevos(distribuidores),
+      activos: contarActivos(distribuidores),
       metaGanancias: Number(form.metaGanancias),
-      // El ranking se ordena automáticamente por volumen al guardar
-      distribuidores: llenas
-        .map((f) => ({ id: f.id.trim(), nombre: f.nombre.trim(), volumen: Number(f.volumen) }))
-        .sort((a, b) => b.volumen - a.volumen),
+      distribuidores,
     }
 
     guardarMes(registro, editandoId)
@@ -325,6 +354,22 @@ export default function Captura() {
               value={form.volumenRed}
               onChange={(e) => cambiarCampo('volumenRed', e.target.value)}
             />
+            {hayLista && (
+              Number(form.volumenRed) === sumaLista ? (
+                <span className="pista-nuevos">✓ Cuadra con la suma de tu lista</span>
+              ) : (
+                <span className="pista-nuevos pista-aviso">
+                  Tu lista suma {pts(sumaLista)}
+                  <button
+                    type="button"
+                    className="boton-pista"
+                    onClick={() => cambiarCampo('volumenRed', String(sumaLista))}
+                  >
+                    Usar
+                  </button>
+                </span>
+              )
+            )}
           </div>
 
           <div className="campo">
@@ -336,38 +381,28 @@ export default function Captura() {
             />
           </div>
 
+          {/* Se calculan solos a partir de la lista de distribuidores */}
           <div className="fila-doble">
-            <div className="campo">
-              <label>Personas nuevas</label>
-              <input
-                type="number" min="0" placeholder="Ej. 6"
-                value={form.nuevosInicios}
-                onChange={(e) => cambiarCampo('nuevosInicios', e.target.value)}
-              />
-              {nuevosDetectados > 0 && (
-                <span className="pista-nuevos">
-                  🆕 {nuevosDetectados} con {CV_INSCRIPCION} pts en tu lista
-                  {Number(form.nuevosInicios) !== nuevosDetectados && (
-                    <button
-                      type="button"
-                      className="boton-pista"
-                      onClick={() => cambiarCampo('nuevosInicios', String(nuevosDetectados))}
-                    >
-                      Usar {nuevosDetectados}
-                    </button>
-                  )}
-                </span>
-              )}
+            <div className="dato-auto">
+              <div className="dato-auto-etq">Personas nuevas</div>
+              <div className="dato-auto-cifra" style={{ color: hayLista ? 'var(--verde)' : undefined }}>
+                {hayLista ? num(nuevosDetectados) : '—'}
+              </div>
+              <div className="dato-auto-sub">con {CV_INSCRIPCION} pts en la lista</div>
             </div>
-            <div className="campo">
-              <label>Distribuidores activos</label>
-              <input
-                type="number" min="0" placeholder="Ej. 32"
-                value={form.activos}
-                onChange={(e) => cambiarCampo('activos', e.target.value)}
-              />
+            <div className="dato-auto">
+              <div className="dato-auto-etq">Distribuidores activos</div>
+              <div className="dato-auto-cifra" style={{ color: hayLista ? 'var(--azul)' : undefined }}>
+                {hayLista ? num(activosDetectados) : '—'}
+              </div>
+              <div className="dato-auto-sub">con volumen en la lista</div>
             </div>
           </div>
+          <p className="dato-auto-nota">
+            {hayLista
+              ? 'Se calculan solos con tu lista de distribuidores.'
+              : 'Se calculan solos cuando pegues o subas la lista de distribuidores.'}
+          </p>
 
           <div className="campo">
             <label>Meta de ganancias del mes (USD)</label>
@@ -383,10 +418,9 @@ export default function Captura() {
         <div className="tarjeta">
           <div className="titulo-seccion">Distribuidores del mes</div>
           <p className="config-descripcion">
-            Captura el volumen personal de cada distribuidor. El ranking se ordena solo.
-            Los nombres se autocompletan con los de meses anteriores.
-            Los que tengan <strong>{CV_INSCRIPCION} pts</strong> se marcan como inscripción nueva 🆕.
-            Tip: presiona <strong>Enter</strong> en el volumen para agregar la siguiente fila.
+            Pega o sube la lista del back office y la app cuenta sola a los nuevos
+            (<strong>{CV_INSCRIPCION} pts</strong> 🆕) y a los activos. También puedes agregar o
+            corregir filas a mano: presiona <strong>Enter</strong> en el volumen para agregar la siguiente.
           </p>
 
           <button
@@ -394,15 +428,15 @@ export default function Captura() {
             style={{ marginBottom: 14 }}
             onClick={() => setPegadoAbierto(!pegadoAbierto)}
           >
-            ⚡ Pegado rápido (lista completa)
+            📋 {pegadoAbierto ? 'Ocultar pegado' : 'Pegar o subir lista'}
           </button>
 
           {pegadoAbierto && (
             <div style={{ marginBottom: 16 }}>
               <p className="config-descripcion">
-                Pega tu lista completa, un distribuidor por línea, con el volumen al final.
-                Puedes incluir el ID al inicio. Funciona con texto de WhatsApp, Excel o notas:
-                <br />«María González 5200» · «Pedro, 4800» · «88412 Ana Torres 3650»
+                Copia la lista del back office y pégala tal cual, o sube el archivo (.txt o .csv).
+                Un distribuidor por línea con el volumen al final; el ID al inicio es opcional:
+                <br />«N 123456701 María González 420.00» · «88412 Ana Torres 3650» · «Pedro, 4800»
               </p>
               <textarea
                 rows={6}
@@ -411,13 +445,29 @@ export default function Captura() {
                   border: '1px solid var(--borde)', borderRadius: 10, padding: '11px 14px',
                   fontSize: 14, fontFamily: 'inherit', resize: 'vertical', outline: 'none',
                 }}
-                placeholder={'María González 5200\nPedro López 4800\nAna Torres 3650'}
+                placeholder={'N\t123456701\tMaría González\t420.00\nN\t123456702\tPedro López\t70.00'}
                 value={textoPegado}
                 onChange={(e) => setTextoPegado(e.target.value)}
               />
-              <button className="boton boton-primario boton-chico" style={{ marginTop: 10 }} onClick={agregarLista}>
-                Agregar lista
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                <button
+                  className="boton boton-primario boton-chico"
+                  onClick={() => procesarTexto(textoPegado)}
+                  disabled={!textoPegado.trim()}
+                >
+                  Agregar lista
+                </button>
+                <button className="boton boton-secundario boton-chico" onClick={() => inputArchivo.current?.click()}>
+                  <IconoSubida /> Subir archivo
+                </button>
+                <input
+                  ref={inputArchivo}
+                  type="file"
+                  accept=".txt,.csv,.tsv,text/plain,text/csv"
+                  style={{ display: 'none' }}
+                  onChange={subirArchivo}
+                />
+              </div>
             </div>
           )}
 

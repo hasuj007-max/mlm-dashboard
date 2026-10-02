@@ -15,6 +15,11 @@ export function contarNuevos(distribuidores) {
   return (distribuidores || []).filter(esNuevo).length
 }
 
+/** Cuántos distribuidores compraron (volumen mayor a 0) en una lista */
+export function contarActivos(distribuidores) {
+  return (distribuidores || []).filter((d) => Number(d.volumen) > 0).length
+}
+
 /** Identificador cronológico de un mes, ej. "2026-05" */
 export function idDeMes(anio, mes) {
   return `${anio}-${String(mes).padStart(2, '0')}`
@@ -169,6 +174,134 @@ export function comparativaMeses(meses, baseId, objetivoId, minimo = 40) {
   resumen.continuidad = resumen.total ? (resumen.activos / resumen.total) * 100 : null
 
   return { base, objetivo, minimo, filas, resumen }
+}
+
+/** Meses de calendario de un id "AAAA-MM" a otro (positivo si b es posterior) */
+export function mesesEntre(idA, idB) {
+  const [a1, m1] = idA.split('-').map(Number)
+  const [a2, m2] = idB.split('-').map(Number)
+  return (a2 - a1) * 12 + (m2 - m1)
+}
+
+/** Estados del seguimiento de una persona inactiva, en orden de avance */
+export const ESTADOS_SEGUIMIENTO = ['pendiente', 'contactado', 'regresara', 'descartado']
+
+/**
+ * A quién hay que reactivar: personas con volumen en alguno de los 12 meses
+ * anteriores al último mes cargado que NO compraron en ese último mes.
+ * La lista de cada mes solo trae a quien compró, así que "no aparecer" = inactivo.
+ *
+ * Devuelve { ultimo, penultimo, desde, personas } con las que se cayeron más
+ * recientemente primero (son las más fáciles de recuperar) y, a igualdad,
+ * las de más volumen. `cayoEsteMes` marca a las activas en el penúltimo mes.
+ */
+export function porReactivar(meses) {
+  const conListas = ordenarPorFecha(meses).filter((m) => (m.distribuidores || []).length > 0)
+  if (conListas.length < 2) return null
+
+  const ultimo = conListas[conListas.length - 1]
+  const penultimo = conListas[conListas.length - 2]
+  const ventana = conListas.slice(-13, -1)
+  const activasUltimo = new Set(
+    ultimo.distribuidores.filter((d) => d.volumen > 0).map(claveDistribuidor)
+  )
+
+  const mapa = new Map()
+  for (const m of ventana) {
+    for (const d of m.distribuidores) {
+      if (d.volumen <= 0) continue
+      const clave = claveDistribuidor(d)
+      if (activasUltimo.has(clave)) continue
+      if (!mapa.has(clave)) {
+        mapa.set(clave, { clave, id: '', nombre: d.nombre, mesesActivo: 0, volumenTotal: 0 })
+      }
+      const p = mapa.get(clave)
+      p.nombre = d.nombre // siempre el nombre más reciente
+      const id = String(d.id ?? '').trim()
+      if (id) p.id = id
+      p.mesesActivo++
+      p.volumenTotal += d.volumen
+      p.ultimoMes = m
+      p.volumenUltimo = d.volumen
+    }
+  }
+
+  // Meses con volumen en toda la historia: detecta a quien solo se inscribió
+  const historia = new Map()
+  for (const m of conListas) {
+    for (const d of m.distribuidores) {
+      const clave = claveDistribuidor(d)
+      if (!mapa.has(clave) || d.volumen <= 0) continue
+      const h = historia.get(clave) || { meses: 0, volumen: 0 }
+      h.meses++
+      h.volumen = d.volumen
+      historia.set(clave, h)
+    }
+  }
+
+  const personas = [...mapa.values()].map((p) => {
+    const h = historia.get(p.clave)
+    return {
+      ...p,
+      mesesSinComprar: mesesEntre(p.ultimoMes.id, ultimo.id),
+      cayoEsteMes: p.ultimoMes.id === penultimo.id,
+      soloInscripcion: h.meses === 1 && h.volumen === CV_INSCRIPCION,
+    }
+  })
+  personas.sort((a, b) => a.mesesSinComprar - b.mesesSinComprar || b.volumenTotal - a.volumenTotal)
+
+  return { ultimo, penultimo, desde: ventana[0], personas }
+}
+
+/**
+ * Quién volvió a comprar después de que lo contactaste: una persona con
+ * seguimiento (no pendiente) que tiene volumen en un mes posterior al mes que
+ * estaba cargado cuando registraste el contacto. Devuelve Map clave → regreso.
+ */
+export function regresosTrasContacto(meses, seguimiento) {
+  const regresos = new Map()
+  const conContacto = Object.entries(seguimiento).filter(
+    ([, s]) => s.estado && s.estado !== 'pendiente' && s.mes
+  )
+  if (conContacto.length === 0) return regresos
+
+  const orden = ordenarPorFecha(meses)
+  for (const [clave, s] of conContacto) {
+    for (const m of orden) {
+      if (m.id <= s.mes) continue
+      const d = (m.distribuidores || []).find((x) => claveDistribuidor(x) === clave)
+      if (d && d.volumen > 0) {
+        regresos.set(clave, {
+          clave, nombre: d.nombre, id: String(d.id ?? '').trim(),
+          mes: m, volumen: d.volumen, fechaContacto: s.fecha,
+        })
+        break
+      }
+    }
+  }
+  return regresos
+}
+
+/**
+ * Valida el seguimiento de un respaldo importado. Devuelve un objeto limpio
+ * { clave: { estado, nota, telefono, mes, fecha } } o null si viene dañado.
+ */
+export function validarSeguimiento(obj) {
+  if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return null
+  const limpio = {}
+  for (const [clave, s] of Object.entries(obj)) {
+    if (!s || typeof s !== 'object') return null
+    if (s.estado != null && !ESTADOS_SEGUIMIENTO.includes(s.estado)) return null
+    const texto = (v) => (typeof v === 'string' ? v : '')
+    limpio[clave] = {
+      estado: s.estado || 'pendiente',
+      nota: texto(s.nota),
+      telefono: texto(s.telefono),
+      mes: texto(s.mes),
+      fecha: texto(s.fecha),
+    }
+  }
+  return limpio
 }
 
 /** Estadísticas de ganancias: promedio, mejor y peor mes */

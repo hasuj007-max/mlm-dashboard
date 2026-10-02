@@ -26,7 +26,8 @@ Si `npm` falla por permisos de caché: `npm_config_cache=/tmp/npmcache-jr npm ru
 
 1. **`base: '/mlm-dashboard/'`** en `vite.config.js` porque se publica en una subruta de
    GitHub Pages. Abrir `localhost:PORT` sin `/mlm-dashboard/` da **pantalla en blanco**.
-2. **Los datos viven en `localStorage`**, claves `mlm-dashboard-datos-v1` y
+2. **Los datos viven en `localStorage`**, claves `mlm-dashboard-datos-v1`,
+   `mlm-dashboard-seguimiento-v1` (estado/teléfono/nota por persona inactiva) y
    `mlm-dashboard-tema`. Son **por origen**: lo que hay en `localhost:5173` no existe en
    el sitio publicado ni en otro puerto. **Son datos reales de 8 años de su negocio**
    (ver abajo). Nunca sembrar datos de prueba sin avisar ni borrar nada sin confirmar;
@@ -57,12 +58,21 @@ src/
   styles/global.css    sistema de diseño completo (tokens + todas las clases)
 ```
 
-**Páginas:** Inicio · Dashboard · Distribuidores · Retención · Comparativa · Reporte
-mensual · Captura de datos · Historial · Configuración.
+**Páginas:** Dashboard (entrada) · Distribuidores · Seguimiento · Retención · Comparativa ·
+Reporte mensual · Captura de datos · Historial · Configuración.
+
+**Seguimiento** (sep 2026): quién compró en los 12 meses previos al último mes cargado y no
+en ese último mes (`porReactivar`), con vista "se cayeron este mes" vs. "últimos 12". Cada
+persona lleva estado (`ESTADOS_SEGUIMIENTO`), teléfono con botón WhatsApp (`wa.me`) y nota.
+Al cambiar el estado se guarda `mes` = último mes cargado; si luego aparece con volumen en un
+mes posterior, cuenta como **"Regresaron"** (`regresosTrasContacto`). El respaldo JSON de
+Configuración exporta/importa `seguimiento` junto a `meses`; un respaldo sin él no lo borra.
 
 **Modelo de datos** — un mes es:
 `{ id: "2026-07", anio, mes, ganancias, metaGanancias, nuevosInicios, activos, volumenRed,
 distribuidores: [{ id, nombre, volumen }] }`
+
+La lista de un mes solo trae a quien **compró**: no aparecer = inactivo ese mes.
 
 Reglas del dominio: moneda **USD**, volumen en **puntos (pts)**. `CV_INSCRIPCION = 30` — un
 distribuidor con volumen **exactamente 30 pts** cuenta como inscripción nueva (`esNuevo`).
@@ -81,7 +91,14 @@ Los datos crudos (nombres e IDs reales de cientos de personas, **privados**) NO 
 están en `~/mlm-dashboard-datos/`, carpeta aparte con su propio repo privado. **Este repo es
 público — nunca copiar datos personales a él.**
 
-**Para agregar un mes nuevo:**
+**Captura (oct 2026):** "Personas nuevas" y "Distribuidores activos" ya NO se teclean: se
+calculan de la lista (`contarNuevos` = exactamente 30 pts, `contarActivos` = volumen > 0),
+igual que `procesar.js` — verificado contra las 27 listas reales, cuadran todas. El pegado
+(`interpretarLinea` en `Captura.jsx`) entiende el formato del back office con prefijo
+"N"/"Y" y también acepta subir .txt/.csv. El volumen de la red sigue siendo manual (el back
+office a veces difiere de la suma: mar-2026) con pista "Tu lista suma X · Usar".
+
+**Para agregar un mes nuevo** él ya puede pegarlo directo en Captura. Si te lo pide a ti:
 
 1. Transcribir el listado que pegue el usuario a `~/mlm-dashboard-datos/<mes>-<anio>.txt`
    tal cual (los prefijos "N"/"Y" los ignora el parser).
@@ -121,10 +138,17 @@ alternativas (Linear/Vercel, claro ejecutivo, denso tipo terminal).
 - **No sin App Store ni backend.** Es una herramienta personal en localStorage y así se queda
   salvo que él lo pida.
 
+- **"Inicio" se borró** (sep 2026) a pedido suyo: duplicaba las cifras del Dashboard, que
+  ahora es la pantalla de entrada.
+
 ## Sobre la mesa (él aún no decide)
 
-- Candidatas a borrar por la misma regla: **Retención** (la más técnica: curva, cohortes,
-  vida mediana) e **Inicio** (duplica las 4 cifras del Dashboard).
+- **Pasar los datos a Firebase** (Firestore + login con Google) para verlos en cualquier
+  dispositivo. Lo quiere, pero pidió pulir la app antes. Hosting solo NO resuelve nada: el
+  problema es que los datos están en localStorage. Hay nombres/IDs/teléfonos reales → reglas
+  de seguridad obligatorias.
+- Candidata a borrar por la misma regla: **Retención** (la más técnica: curva, cohortes,
+  vida mediana). Seguimiento se solapa con "Se cayeron" de Comparativa.
 - Métricas que se le propusieron y **pospuso para simplificar primero**: quién patrocinó a
   quién (desbloquea medir duplicación real), actividad semanal (contactos/invitaciones/
   presentaciones/seguimientos), marcar cliente vs. distribuidor, fecha de alta + primer

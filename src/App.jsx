@@ -2,22 +2,22 @@
 
 import { useApp } from './context/AppContext'
 import Sidebar from './components/Sidebar'
-import Inicio from './paginas/Inicio'
 import Dashboard from './paginas/Dashboard'
 import Captura from './paginas/Captura'
 import Distribuidores from './paginas/Distribuidores'
 import Retencion from './paginas/Retencion'
+import Seguimiento from './paginas/Seguimiento'
 import Comparativa from './paginas/Comparativa'
 import Reporte from './paginas/Reporte'
 import Historial from './paginas/Historial'
 import Configuracion from './paginas/Configuracion'
 
 const PAGINAS = {
-  inicio: Inicio,
   dashboard: Dashboard,
   captura: Captura,
   distribuidores: Distribuidores,
   retencion: Retencion,
+  seguimiento: Seguimiento,
   comparativa: Comparativa,
   reporte: Reporte,
   historial: Historial,
@@ -26,7 +26,7 @@ const PAGINAS = {
 
 export default function App() {
   const { pagina, toast } = useApp()
-  const Pagina = PAGINAS[pagina] || Inicio
+  const Pagina = PAGINAS[pagina] || Dashboard
 
   return (
     <div className="app">

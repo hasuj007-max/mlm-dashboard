@@ -1,11 +1,13 @@
-// Contexto global de la app: datos persistidos en localStorage, navegación
-// entre páginas, tema claro/oscuro y notificaciones (toasts).
+// Contexto global de la app: datos persistidos en localStorage (meses y
+// seguimiento de inactivos), navegación entre páginas, tema claro/oscuro y
+// notificaciones (toasts).
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { idDeMes, ordenarPorFecha } from '../utils/calculos'
+import { idDeMes, ordenarPorFecha, validarSeguimiento } from '../utils/calculos'
 
 const CLAVE_DATOS = 'mlm-dashboard-datos-v1'
 const CLAVE_TEMA = 'mlm-dashboard-tema'
+const CLAVE_SEGUIMIENTO = 'mlm-dashboard-seguimiento-v1'
 
 const AppContext = createContext(null)
 
@@ -23,9 +25,19 @@ function cargarMeses() {
   }
 }
 
+/** Lee el seguimiento guardado: { claveDistribuidor: { estado, nota, telefono, mes, fecha } } */
+function cargarSeguimiento() {
+  try {
+    return validarSeguimiento(JSON.parse(localStorage.getItem(CLAVE_SEGUIMIENTO) || '{}')) || {}
+  } catch {
+    return {}
+  }
+}
+
 export function AppProvider({ children }) {
   const [meses, setMeses] = useState(cargarMeses)
-  const [pagina, setPagina] = useState('inicio')
+  const [seguimiento, setSeguimiento] = useState(cargarSeguimiento)
+  const [pagina, setPagina] = useState('dashboard')
   const [editandoId, setEditandoId] = useState(null) // mes que se edita en Captura
   const [tema, setTema] = useState(() => localStorage.getItem(CLAVE_TEMA) || 'oscuro')
   const [toast, setToast] = useState(null)
@@ -34,6 +46,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(CLAVE_DATOS, JSON.stringify({ version: 1, meses }))
   }, [meses])
+
+  useEffect(() => {
+    localStorage.setItem(CLAVE_SEGUIMIENTO, JSON.stringify(seguimiento))
+  }, [seguimiento])
 
   useEffect(() => {
     localStorage.setItem(CLAVE_TEMA, tema)
@@ -73,6 +89,14 @@ export function AppProvider({ children }) {
     setMeses(ordenarPorFecha(nuevosMeses))
   }
 
+  /** Cambia el seguimiento de una persona (estado, nota o teléfono) */
+  function actualizarSeguimiento(clave, cambios) {
+    setSeguimiento((previo) => ({
+      ...previo,
+      [clave]: { estado: 'pendiente', nota: '', telefono: '', mes: '', fecha: '', ...previo[clave], ...cambios },
+    }))
+  }
+
   /** Nombres de distribuidores usados en cualquier mes (para autocompletar) */
   const nombresConocidos = useMemo(() => {
     const nombres = new Set()
@@ -93,6 +117,7 @@ export function AppProvider({ children }) {
     tema, setTema,
     toast, avisar,
     guardarMes, existeMes, eliminarMes, reemplazarTodo,
+    seguimiento, actualizarSeguimiento, reemplazarSeguimiento: setSeguimiento,
     nombresConocidos,
   }
 

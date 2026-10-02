@@ -4,9 +4,9 @@
 import { Fragment } from 'react'
 import { useApp } from '../context/AppContext'
 import {
-  IconoInicio, IconoDashboard, IconoCaptura, IconoHistorial,
+  IconoDashboard, IconoCaptura, IconoHistorial,
   IconoConfig, IconoSol, IconoLuna, IconoUsuarios, IconoCompartir, IconoComparativa,
-  IconoRetencion,
+  IconoRetencion, IconoTelefono,
 } from './Iconos'
 
 // Menú agrupado por intención: ver el negocio, cuidar al equipo, mover datos.
@@ -14,7 +14,6 @@ const GRUPOS = [
   {
     titulo: 'Panel',
     paginas: [
-      { id: 'inicio', etiqueta: 'Inicio', Icono: IconoInicio },
       { id: 'dashboard', etiqueta: 'Dashboard', Icono: IconoDashboard },
     ],
   },
@@ -22,6 +21,7 @@ const GRUPOS = [
     titulo: 'Mi equipo',
     paginas: [
       { id: 'distribuidores', etiqueta: 'Distribuidores', Icono: IconoUsuarios },
+      { id: 'seguimiento', etiqueta: 'Seguimiento', Icono: IconoTelefono },
       { id: 'retencion', etiqueta: 'Retención', Icono: IconoRetencion },
     ],
   },

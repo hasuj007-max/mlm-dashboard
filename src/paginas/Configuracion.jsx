@@ -3,17 +3,17 @@
 
 import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { validarImportacion } from '../utils/calculos'
+import { validarImportacion, validarSeguimiento } from '../utils/calculos'
 import { IconoDescarga, IconoSubida, IconoBasura } from '../components/Iconos'
 
 export default function Configuracion() {
-  const { meses, reemplazarTodo, avisar } = useApp()
+  const { meses, reemplazarTodo, seguimiento, reemplazarSeguimiento, avisar } = useApp()
   const inputArchivo = useRef(null)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
 
-  /** Descarga todos los datos como archivo JSON de respaldo */
+  /** Descarga meses y seguimiento de inactivos como archivo JSON de respaldo */
   function exportar() {
-    const contenido = JSON.stringify({ version: 1, app: 'mlm-dashboard', meses }, null, 2)
+    const contenido = JSON.stringify({ version: 1, app: 'mlm-dashboard', meses, seguimiento }, null, 2)
     const blob = new Blob([contenido], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const enlace = document.createElement('a')
@@ -45,7 +45,17 @@ export default function Configuracion() {
         avisar(resultado.error + ' No se importó nada.', 'error')
         return
       }
+      // Un respaldo sin seguimiento (anterior a esa función) no borra el actual
+      let seguimientoNuevo = null
+      if (datos.seguimiento != null) {
+        seguimientoNuevo = validarSeguimiento(datos.seguimiento)
+        if (!seguimientoNuevo) {
+          avisar('El seguimiento del archivo está dañado. No se importó nada.', 'error')
+          return
+        }
+      }
       reemplazarTodo(resultado.meses)
+      if (seguimientoNuevo) reemplazarSeguimiento(seguimientoNuevo)
       avisar(`✓ Respaldo importado: ${resultado.meses.length} meses`)
     }
     lector.onerror = () => avisar('No se pudo leer el archivo.', 'error')
@@ -54,6 +64,7 @@ export default function Configuracion() {
 
   function borrarTodo() {
     reemplazarTodo([])
+    reemplazarSeguimiento({})
     setConfirmandoBorrado(false)
     avisar('Todos los datos fueron eliminados', 'error')
   }
@@ -73,7 +84,8 @@ export default function Configuracion() {
           <div className="titulo-seccion">Exportar respaldo</div>
           <p className="config-descripcion">
             Descarga un archivo JSON con todos tus meses registrados
-            ({meses.length} {meses.length === 1 ? 'mes' : 'meses'}). Guárdalo en un
+            ({meses.length} {meses.length === 1 ? 'mes' : 'meses'}) y el seguimiento de
+            inactivos (estados, teléfonos y notas). Guárdalo en un
             lugar seguro o úsalo para mover tus datos a otra computadora.
           </p>
           <button className="boton boton-primario" onClick={exportar} disabled={meses.length === 0}>
@@ -102,7 +114,7 @@ export default function Configuracion() {
         <div className="tarjeta">
           <div className="titulo-seccion">Zona de peligro</div>
           <p className="config-descripcion">
-            Elimina todos los meses registrados. Esta acción no se puede deshacer:
+            Elimina todos los meses registrados y el seguimiento. Esta acción no se puede deshacer:
             exporta un respaldo antes si tienes dudas.
           </p>
           {confirmandoBorrado ? (
