@@ -4,7 +4,7 @@ App web local para medir la red de venta directa del usuario mes a mes: ganancia
 meta, volumen, nuevos inicios, activos y ranking del equipo.
 
 - **Código:** `~/mlm-dashboard/`
-- **En vivo:** https://hasuj007-max.github.io/mlm-dashboard/
+- **En vivo:** https://mi-red-hasuj.firebaseapp.com (nueva, Firebase) · https://hasuj007-max.github.io/mlm-dashboard/ (vieja, GitHub Pages)
 - **Repo:** github.com/hasuj007-max/mlm-dashboard
 - **Stack:** React 18 + Vite 5 + Recharts 2. Sin backend, sin router, sin librería de UI.
 
@@ -13,7 +13,7 @@ meta, volumen, nuevos inicios, activos y ranking del equipo.
 ## Comandos
 
 ```bash
-npm run dev      # http://localhost:5173/mlm-dashboard/  ← la ruta /mlm-dashboard/ es obligatoria
+npm run dev      # http://localhost:5173/  (la base ya es / ; /mlm-dashboard/ solo en GitHub Pages)
 npm run build    # a dist/
 git push origin main   # dispara el deploy solo (.github/workflows/deploy.yml → GitHub Pages)
 ```
@@ -24,8 +24,8 @@ Si `npm` falla por permisos de caché: `npm_config_cache=/tmp/npmcache-jr npm ru
 
 ## Trampas (leer antes de tocar nada)
 
-1. **`base: '/mlm-dashboard/'`** en `vite.config.js` porque se publica en una subruta de
-   GitHub Pages. Abrir `localhost:PORT` sin `/mlm-dashboard/` da **pantalla en blanco**.
+1. **`base` es `/`** (Firebase Hosting). Solo el workflow de GitHub Pages compila con
+   `BASE=/mlm-dashboard/`. En local se abre `localhost:PUERTO/` sin subruta.
 2. **Los datos viven en `localStorage`**, claves `mlm-dashboard-datos-v1`,
    `mlm-dashboard-seguimiento-v1` (estado/teléfono/nota por persona inactiva) y
    `mlm-dashboard-tema`. Son **por origen**: lo que hay en `localhost:5173` no existe en
@@ -50,29 +50,72 @@ Si `npm` falla por permisos de caché: `npm_config_cache=/tmp/npmcache-jr npm ru
 src/
   App.jsx              enrutado por objeto PAGINAS (no hay react-router)
   context/AppContext   estado global: meses[], página activa, tema, toasts, localStorage
-  paginas/             9 pantallas (ver abajo)
-  components/          Sidebar, Cambio (chip ±%), Gauge (meta), Sparkline, TooltipGrafica, Iconos (SVG inline)
+  paginas/             4 pantallas: Resumen, Gente, Captura, Mas (+ Historial, Reporte, Configuracion dentro de Mas)
+  components/          Navegacion, Cambio (chip ±%), TooltipGrafica, Iconos (SVG inline)
   utils/calculos.js    toda la lógica de negocio, sin React
   utils/formato.js     usd() pts() num() etiquetaMes() etiquetaCorta()
   utils/tema.js        paleta y ejes compartidos de gráficas
-  styles/global.css    sistema de diseño completo (tokens + todas las clases)
+  styles/global.css    base (tokens + clases de Captura/Historial/Reporte/Ajustes)
+  styles/v2.css        rediseño nov 2026: tokens retocados + navegación, Resumen, Mi gente
 ```
 
-**Páginas:** Dashboard (entrada) · Distribuidores · Seguimiento · Retención · Comparativa ·
-Reporte mensual · Captura de datos · Historial · Configuración.
+**Rediseño nov 2026 — 4 pantallas** (antes 9; él se confundía). Cada una responde una pregunta:
 
-**Seguimiento** (sep 2026): quién compró en los 12 meses previos al último mes cargado y no
-en ese último mes (`porReactivar`), con vista "se cayeron este mes" vs. "últimos 12". Cada
-persona lleva estado (`ESTADOS_SEGUIMIENTO`), teléfono con botón WhatsApp (`wa.me`) y nota.
-Al cambiar el estado se guarda `mes` = último mes cargado; si luego aparece con volumen en un
-mes posterior, cuenta como **"Regresaron"** (`regresosTrasContacto`). El respaldo JSON de
-Configuración exporta/importa `seguimiento` junto a `meses`; un respaldo sin él no lo borra.
+- **Resumen** (`Resumen.jsx`, entrada): ganancia grande + meta (solo si es real: distinta a la
+  ganancia), 3 datos (compraron / inscritos / volumen), "A quién llamar esta semana" (lleva a
+  Mi gente), rango por volumen (`rangoPorVolumen`, tabla `RANGOS` del plan 2020), "¿Se quedó tu
+  gente?" (`retencionDelMes`) y una sola gráfica de ganancias. Selector de mes arriba.
+- **Mi gente** (`Gente.jsx`): pestañas Nuevos (`nuevosEnRiesgo`) · Se cayeron (`porReactivar`
+  en 4 grupos `GRUPOS_INACTIVOS`: este mes · tibios 2–3 · fríos 4–6 · dormidos 7–12 meses sin
+  comprar; primero los "constantes" = 3+ meses con compra, `MESES_CONSTANTE`; >12 meses se omite a
+  propósito) · Casi califican (`casiCalifican`, 60–119 pts) · Todos (directorio con
+  historial). Cada persona abre una ficha: estado (`ESTADOS_SEGUIMIENTO`), teléfono, mensaje de
+  WhatsApp con `{nombre}` (plantilla por pestaña en `mlm-dashboard-mensajes-v1`, NO va en el
+  respaldo JSON), llamar y notas. Si alguien contactado vuelve a comprar cuenta como "Volvieron"
+  (`regresosTrasContacto`) y su estado se reinicia.
+  En Resumen, **"Gente que revivió"** (`revividos`): se detecta sola con las listas, sin marcar
+  nada: compró este mes, no el anterior y ya había comprado antes. Se clasifica por el grupo en que
+  estaba (mes pasado/tibio/frío/dormido/+1 año) y dice cuántos de los revividos del mes anterior
+  "se quedaron" (volvieron a comprar). Historial de 6 meses. Festeja solo si supera su promedio.
+- **Cargar mes** (`Captura.jsx`, sin cambios de lógica).
+- **Más** (`Mas.jsx`): pestañas Historial · Compartir mes (Reporte) · Respaldo y ajustes
+  (Configuración) + botón de tema.
+
+**Tres herramientas de resultado (nov 2026)**, todas en localStorage y dentro del respaldo JSON
+(`actividad`, `arranque`, `mensajes`; un respaldo viejo sin ellas no borra las actuales):
+
+- **Actividad diaria** (Resumen, solo en el último mes): contadores +/− de invitaciones,
+  presentaciones, seguimientos e inscritos. Clave `mlm-dashboard-actividad-v1`
+  (`{ 'AAAA-MM-DD': {...} }`). Con ≥5 presentaciones en 30 días muestra su cierre real.
+- **Plan para subir de rango** (Resumen): `modeloCrecimiento` saca retención y entradas de los
+  últimos 6 cambios de mes; `proyectarRango` aplica activos × r + E. Dos deslizadores. Dice
+  "No alcanza" cuando la red se estaciona antes de la meta. Es proyección, nunca promesa.
+- **Arranque de 30 días** (Mi gente → Nuevos): `PASOS_ARRANQUE` (bienvenida día 1, seguimiento
+  día 7, recompra día 21), clave `mlm-dashboard-arranque-v1`. La lista mensual no trae el día
+  de inscripción: él lo captura a mano en la ficha y entonces la app dice "Toca hoy/Atrasado".
+  En Nuevos la ficha no muestra los chips de estado: solo 4 botones (los 3 pasos + **Ya compró**,
+  `PASO_COMPRA`, guardado en `arranque[clave].pasos.compro`). Quien ya compró baja al final.
+  Prender un paso marca a la persona como contactada.
+
+`navegar(destino, idAEditar, opcion)`: `opcion` abre una pestaña; los nombres viejos
+(`dashboard`, `seguimiento`, `historial`…) siguen funcionando por el mapa `ALIAS` del contexto.
+Navegación en `components/Navegacion.jsx` (lateral en escritorio, barra inferior con texto en
+teléfono). Estilo nuevo en `styles/v2.css`, cargado después de `global.css`: retoca tokens (plano,
+sin brillo ni sombras) y define las piezas nuevas. `global.css` aún tiene clases de las páginas
+borradas (dashboard, comparativa, seg-*): limpieza pendiente, no estorban.
+
+**Se borraron** Dashboard, Seguimiento, Distribuidores, Comparativa y Retención (y Gauge,
+Sparkline, Sidebar): lo útil vive en Resumen y Mi gente; el análisis profundo lo hacen los agentes
+de `~/mlm-dashboard-datos`. No re-agregarlas sin preguntar.
 
 **Modelo de datos** — un mes es:
 `{ id: "2026-07", anio, mes, ganancias, metaGanancias, nuevosInicios, activos, volumenRed,
 distribuidores: [{ id, nombre, volumen }] }`
 
 La lista de un mes solo trae a quien **compró**: no aparecer = inactivo ese mes.
+
+El volumen y la lista que captura el usuario son **solo de su pierna de pago** (plan binario: la
+pierna de menor volumen). "Activos" y "volumen" en la app = de esa pierna, no de toda la organización.
 
 Reglas del dominio: moneda **USD**, volumen en **puntos (pts)**. `CV_INSCRIPCION = 30` — un
 distribuidor con volumen **exactamente 30 pts** cuenta como inscripción nueva (`esNuevo`).
@@ -88,7 +131,10 @@ jun-2024 se reconstruyeron desde historiales de comisiones y solo tienen gananci
 (volumen 0, sin lista de distribuidores); de ahí en adelante sí traen la lista completa.
 
 Los datos crudos (nombres e IDs reales de cientos de personas, **privados**) NO viven aquí:
-están en `~/mlm-dashboard-datos/`, carpeta aparte con su propio repo privado. **Este repo es
+están en `~/mlm-dashboard-datos/`, carpeta aparte con su propio repo privado. Esa carpeta es
+también el **"cerebro" del negocio**: agentes de análisis (historia, retención, estrategia de
+duplicación), `analisis/numeros.mjs` y `conocimiento/`. Ver su propio `CLAUDE.md`; es la que el
+usuario abre en Cowork. **Este repo es
 público — nunca copiar datos personales a él.**
 
 **Captura (oct 2026):** "Personas nuevas" y "Distribuidores activos" ya NO se teclean: se
@@ -109,6 +155,15 @@ office a veces difiere de la suma: mar-2026) con pista "Tu lista suma X · Usar"
 4. Él lo carga desde **Configuración → Importar datos**.
 
 ---
+
+## Pruebas
+
+- `node pruebas/simulacion.mjs`: corrida de 24 meses inventados (base estable y luego crecimiento
+  hasta Diamante, con gente que entra, se cae, regresa y devoluciones). Corre todas las cuentas mes
+  a mes y revisa invariantes (rango, retención = revividos, grupos, nuevos, casi califican, plan,
+  importación, fusión). Datos 100% inventados (`SIM00001`…). `--json archivo` guarda el respaldo
+  simulado para probar la interfaz. Correrla antes de publicar cambios en `calculos.js`.
+- `node src/nube/fusion.test.mjs`: reglas de fusión con la nube.
 
 ## Diseño
 
@@ -135,24 +190,36 @@ alternativas (Linear/Vercel, claro ejecutivo, denso tipo terminal).
   `clavesActivas` e `IconoPulso`. **No re-agregarla.** Está en el historial de Git.
 - **Criterio de simplificación del usuario:** *si una pantalla no cambia lo que va a hacer
   esta semana, no gana su lugar en el menú.* Él quiere **menos** cosas, no más.
-- **No sin App Store ni backend.** Es una herramienta personal en localStorage y así se queda
-  salvo que él lo pida.
+- **Sin App Store.** Backend solo Firebase (lo pidió él, nov 2026); localStorage sigue siendo la base.
 
 - **"Inicio" se borró** (sep 2026) a pedido suyo: duplicaba las cifras del Dashboard, que
   ahora es la pantalla de entrada.
 
-## Sobre la mesa (él aún no decide)
+## Nube: Firebase "Mi Red" (nov 2026)
 
-- **Pasar los datos a Firebase** (Firestore + login con Google) para verlos en cualquier
-  dispositivo. Lo quiere, pero pidió pulir la app antes. Hosting solo NO resuelve nada: el
-  problema es que los datos están en localStorage. Hay nombres/IDs/teléfonos reales → reglas
-  de seguridad obligatorias.
-- Candidata a borrar por la misma regla: **Retención** (la más técnica: curva, cohortes,
-  vida mediana). Seguimiento se solapa con "Se cayeron" de Comparativa.
-- Métricas que se le propusieron y **pospuso para simplificar primero**: quién patrocinó a
-  quién (desbloquea medir duplicación real), actividad semanal (contactos/invitaciones/
-  presentaciones/seguimientos), marcar cliente vs. distribuidor, fecha de alta + primer
-  volumen (arranque 72 h), ratio acumulado/anual.
+- **Proyecto:** `mi-red-hasuj` (plan Spark). **Dirección nueva: https://mi-red-hasuj.firebaseapp.com**
+  (`.web.app` redirige ahí desde `index.html`: el login con Google en iPhone instalado solo
+  funciona en el dominio de `authDomain`). GitHub Pages sigue existiendo en `/mlm-dashboard/`
+  (su workflow compila con `BASE=/mlm-dashboard/`; `vite.config.js` usa `/` por defecto).
+- **Publicar:** `npm run build && firebase deploy --only hosting --project mi-red-hasuj`
+  (reglas: `--only firestore:rules`). Hosting sirve `dist/` sin rewrites; comprobar con curl
+  que `/.git/HEAD` dé 404.
+- **Login opcional.** Sin sesión la app funciona igual que siempre con localStorage. Con sesión
+  de Google, `src/nube/useNube.js` mantiene copia en Firestore:
+  `usuarios/{uid}/meses/{AAAA-MM}` (el mes + `actualizado`) y `usuarios/{uid}/extras/{seguimiento|
+  actividad|arranque|mensajes}` (`{ json, actualizado, reinicio }`).
+- **Reglas de fusión** (`src/nube/fusion.js`, pruebas: `node src/nube/fusion.test.mjs`): se lee
+  la nube del servidor ANTES de subir; si falla la lectura no se toca nada; un dispositivo vacío
+  nunca borra la nube; mes en ambos lados → gana `actualizado` mayor; `conocidos` (en
+  `mlm-dashboard-sync-v1`) distingue "nuevo aquí" de "borrado en otro lado"; los extras se unen
+  por clave. "Borrar todo" con sesión borra también la nube (marca `reinicio`).
+- `firestore.rules`: cada uid solo lee/escribe `usuarios/{su uid}/**`. No lleva su correo porque
+  el repo es público. Endurecer a su UID cuando ya haya entrado una vez.
+- Firebase se carga con import dinámico (`motor.js`, chunk aparte). La config web en
+  `src/nube/firebase.js` es pública por diseño.
+- **Pendiente:** que él active Google en Authentication (consola) y, si quiere entrar desde la
+  dirección vieja, agregar `hasuj007-max.github.io` a dominios autorizados. Probar el login real
+  y la primera subida. Luego: aviso/redirección en GitHub Pages y PWA instalable.
 
 ## Contexto del usuario
 

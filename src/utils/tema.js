@@ -41,8 +41,8 @@ export const COLORES_AVATAR = [
 /** Colores de ejes y rejilla según el tema (los acentos no cambian) */
 export function coloresGrafica(tema) {
   return tema === 'claro'
-    ? { eje: '#6b768e', rejilla: 'rgba(18,28,56,0.08)' }
-    : { eje: '#7c869c', rejilla: 'rgba(255,255,255,0.06)' }
+    ? { eje: '#6b768e', rejilla: 'rgba(18,28,56,0.08)', barra: '#d5dbe8' }
+    : { eje: '#7c869c', rejilla: 'rgba(255,255,255,0.06)', barra: '#2a3142' }
 }
 
 /** Props comunes de los ejes: sin línea, sin ticks, tipografía de la app */

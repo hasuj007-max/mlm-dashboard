@@ -283,7 +283,7 @@ export default function Captura() {
 
     guardarMes(registro, editandoId)
     avisar(`✓ ${MESES[registro.mes - 1]} ${registro.anio} guardado con éxito`)
-    navegar('dashboard')
+    navegar('resumen')
   }
 
   const aniosDisponibles = []

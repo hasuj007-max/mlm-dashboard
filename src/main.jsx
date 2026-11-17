@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AppProvider } from './context/AppContext'
 import './styles/global.css'
+import './styles/v2.css'
 
 // Aplicar el tema guardado antes del primer render para evitar parpadeo
 document.documentElement.dataset.tema = localStorage.getItem('mlm-dashboard-tema') || 'oscuro'

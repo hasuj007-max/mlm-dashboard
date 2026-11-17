@@ -195,6 +195,24 @@ export const ESTADOS_SEGUIMIENTO = ['pendiente', 'contactado', 'regresara', 'des
  * recientemente primero (son las más fáciles de recuperar) y, a igualdad,
  * las de más volumen. `cayoEsteMes` marca a las activas en el penúltimo mes.
  */
+/** Desde cuántos meses con compra (en toda la historia) alguien cuenta como cliente constante */
+export const MESES_CONSTANTE = 3
+
+/**
+ * Grupos de inactivos según qué tan frío está cada quien (meses desde su última
+ * compra hasta el último mes cargado). Cada uno pide una forma distinta de hablarle.
+ */
+export const GRUPOS_INACTIVOS = [
+  { id: 'este', texto: 'Este mes', corto: 'Este mes', desde: 1, hasta: 1,
+    consejo: 'Compraron el mes anterior y este no. Llamada personal esta semana: son los más fáciles de recuperar.' },
+  { id: 'tibios', texto: 'Tibios', corto: '2–3 meses', desde: 2, hasta: 3,
+    consejo: 'Llevan 2 o 3 meses sin comprar. Llamada o WhatsApp personal: todavía se acuerdan de ti.' },
+  { id: 'frios', texto: 'Fríos', corto: '4–6 meses', desde: 4, hasta: 6,
+    consejo: 'Llevan de 4 a 6 meses sin comprar. Escríbeles con un motivo concreto: una promoción, un producto nuevo o un evento.' },
+  { id: 'dormidos', texto: 'Dormidos', corto: '7–12 meses', desde: 7, hasta: 12,
+    consejo: 'Llevan de 7 a 12 meses sin comprar. Un mensaje general de vez en cuando basta; no inviertas llamadas una por una.' },
+]
+
 export function porReactivar(meses) {
   const conListas = ordenarPorFecha(meses).filter((m) => (m.distribuidores || []).length > 0)
   if (conListas.length < 2) return null
@@ -246,6 +264,8 @@ export function porReactivar(meses) {
       mesesSinComprar: mesesEntre(p.ultimoMes.id, ultimo.id),
       cayoEsteMes: p.ultimoMes.id === penultimo.id,
       soloInscripcion: h.meses === 1 && h.volumen === CV_INSCRIPCION,
+      mesesConCompra: h.meses, // en toda la historia con lista
+      constante: h.meses >= MESES_CONSTANTE,
     }
   })
   personas.sort((a, b) => a.mesesSinComprar - b.mesesSinComprar || b.volumenTotal - a.volumenTotal)
@@ -521,5 +541,397 @@ export function analisisInscripciones(meses) {
     curva,
     cohortes,
     sobrevivientes: sobrevivientes.sort((a, b) => b.mesesActivo - a.mesesActivo),
+  }
+}
+
+// ---------- Rango, retención del mes y listas de acción (rediseño nov 2026) ----------
+
+/** PV personal mínimo para contar como "activo" según el plan de la compañía */
+export const PV_ACTIVO_PLAN = 120
+
+/**
+ * Volumen mínimo en la pierna de pago por rango (plan 2020). El rango real
+ * además pide PV personal y, desde Oro, directos en Bronce: esto solo dice
+ * hasta dónde alcanza el volumen.
+ */
+export const RANGOS = [
+  ['Afiliado Calificado', 120], ['Aprendiz', 300], ['Aprendiz Elite', 600], ['Supervisor', 1200],
+  ['Bronce', 2500], ['Plata', 5000], ['Oro', 10000], ['Oro Rosado', 15000], ['Platino', 20000],
+  ['Jade', 30000], ['Zafiro', 40000], ['Perla', 50000], ['Rubí', 60000], ['Esmeralda', 80000],
+  ['Diamante', 100000], ['Doble Diamante', 250000], ['Triple Diamante', 500000],
+  ['Diamante Corona', 1000000],
+]
+
+/** Rango que alcanza un volumen de pierna de pago y lo que falta para el siguiente */
+export function rangoPorVolumen(volumen) {
+  const v = Number(volumen) || 0
+  let i = -1
+  RANGOS.forEach(([, min], idx) => { if (v >= min) i = idx })
+  const actual = i >= 0 ? RANGOS[i] : null
+  const siguiente = RANGOS[i + 1] || null
+  const piso = actual ? actual[1] : 0
+  return {
+    nombre: actual ? actual[0] : 'Sin rango',
+    piso,
+    siguiente: siguiente ? siguiente[0] : null,
+    meta: siguiente ? siguiente[1] : null,
+    falta: siguiente ? siguiente[1] - v : 0,
+    avance: siguiente ? Math.max(0, Math.min(1, (v - piso) / (siguiente[1] - piso))) : 1,
+  }
+}
+
+/** Cuántos de una lista llegan al mínimo del plan (120 PV) */
+export function contarCalificados(distribuidores) {
+  return (distribuidores || []).filter((d) => Number(d.volumen) >= PV_ACTIVO_PLAN).length
+}
+
+/** Meses que traen lista de distribuidores, en orden cronológico */
+export function mesesConLista(meses) {
+  return ordenarPorFecha(meses).filter((m) => (m.distribuidores || []).length > 0)
+}
+
+/** Mes de la primera compra de cada persona y si entró con inscripción (30 pts) */
+function primerasCompras(conListas) {
+  const mapa = new Map()
+  for (const m of conListas) {
+    for (const d of m.distribuidores) {
+      if (d.volumen <= 0) continue
+      const clave = claveDistribuidor(d)
+      if (!mapa.has(clave)) mapa.set(clave, { mes: m, inscripcion: esNuevo(d) })
+    }
+  }
+  return mapa
+}
+
+/**
+ * Retención de un mes contra el anterior con lista: de los que compraron el mes
+ * pasado, cuántos repitieron; de los inscritos del mes pasado, cuántos
+ * recompraron; y cuántos regresaron después de estar inactivos.
+ * `hastaId` permite calcularlo para un mes anterior al último.
+ */
+export function retencionDelMes(meses, hastaId = null) {
+  let conListas = mesesConLista(meses)
+  if (hastaId) conListas = conListas.filter((m) => m.id <= hastaId)
+  if (conListas.length < 2) return null
+  const actual = conListas[conListas.length - 1]
+  if (hastaId && actual.id !== hastaId) return null
+  const previo = conListas[conListas.length - 2]
+
+  const activos = (m) => new Set(m.distribuidores.filter((d) => d.volumen > 0).map(claveDistribuidor))
+  const A = activos(actual)
+  const P = activos(previo)
+  const primeras = primerasCompras(conListas)
+
+  const repitieron = [...P].filter((k) => A.has(k)).length
+  // Misma cuenta que "Inscritos nuevos" del mes: quien compró exactamente 30 pts
+  const inscritosPrevios = previo.distribuidores.filter(esNuevo).map(claveDistribuidor)
+  const nuevosRecompraron = inscritosPrevios.filter((k) => A.has(k)).length
+  const regresaron = [...A].filter((k) => !P.has(k) && primeras.get(k).mes.id < previo.id).length
+
+  // Promedio de los 6 pares anteriores, para saber si el mes fue bueno o malo
+  const tasas = []
+  for (let i = conListas.length - 2; i >= 1 && tasas.length < 6; i--) {
+    const b = activos(conListas[i - 1])
+    const a = activos(conListas[i])
+    if (b.size) tasas.push([...b].filter((k) => a.has(k)).length / b.size)
+  }
+
+  return {
+    actual, previo,
+    base: P.size,
+    repitieron,
+    pct: P.size ? (repitieron / P.size) * 100 : null,
+    pctPromedio: tasas.length ? (tasas.reduce((s, t) => s + t, 0) / tasas.length) * 100 : null,
+    inscritosPrevios: inscritosPrevios.length,
+    nuevosRecompraron,
+    regresaron,
+  }
+}
+
+/**
+ * Nuevos que hay que arrancar: personas cuya primera compra fue una inscripción
+ * (30 pts) en alguno de los últimos 3 meses con lista y que no han vuelto a
+ * comprar. Los del último mes aún están a tiempo; los anteriores ya se enfrían.
+ */
+export function nuevosEnRiesgo(meses) {
+  const conListas = mesesConLista(meses)
+  if (conListas.length === 0) return []
+  const ultimo = conListas[conListas.length - 1]
+  const ventana = conListas.slice(-3)
+  const primeras = primerasCompras(conListas)
+
+  const personas = []
+  for (const m of ventana) {
+    for (const d of m.distribuidores) {
+      const clave = claveDistribuidor(d)
+      const p = primeras.get(clave)
+      if (!p || !p.inscripcion || p.mes.id !== m.id || !esNuevo(d)) continue
+      const recompro = conListas.some(
+        (x) => x.id > m.id && x.distribuidores.some((y) => y.volumen > 0 && claveDistribuidor(y) === clave)
+      )
+      if (recompro) continue
+      personas.push({
+        clave, id: String(d.id ?? '').trim(), nombre: d.nombre,
+        mesInscripcion: m,
+        mesesDesde: mesesEntre(m.id, ultimo.id),
+      })
+    }
+  }
+  return personas.sort((a, b) => a.mesesDesde - b.mesesDesde || a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+/**
+ * Casi califican: compraron en el último mes pero se quedaron entre `minimo`
+ * y 119 pts, a poco de los 120 PV que pide el plan.
+ */
+export function casiCalifican(meses, minimo = 60) {
+  const conListas = mesesConLista(meses)
+  if (conListas.length === 0) return []
+  const ultimo = conListas[conListas.length - 1]
+  return ultimo.distribuidores
+    .filter((d) => d.volumen >= minimo && d.volumen < PV_ACTIVO_PLAN)
+    .map((d) => ({
+      clave: claveDistribuidor(d), id: String(d.id ?? '').trim(), nombre: d.nombre,
+      volumen: d.volumen, falta: PV_ACTIVO_PLAN - d.volumen,
+    }))
+    .sort((a, b) => a.falta - b.falta)
+}
+
+// ---------- Modelo de crecimiento, actividad y arranque (nov 2026) ----------
+
+/**
+ * Números base para proyectar la pierna de pago, sacados de los últimos 6
+ * cambios de mes: retención (r), entradas por mes (E = primera compra +
+ * regresos), activos de hoy y puntos por activo (promedio de 3 meses).
+ * Fórmula: activos del mes siguiente = activos × r + E.
+ */
+export function modeloCrecimiento(meses) {
+  const conListas = mesesConLista(meses)
+  if (conListas.length < 3) return null
+  const activos = (m) => new Set(m.distribuidores.filter((d) => d.volumen > 0).map(claveDistribuidor))
+  const tasas = []
+  const entradas = []
+  for (let i = conListas.length - 1; i >= 1 && tasas.length < 6; i--) {
+    const b = activos(conListas[i - 1])
+    const a = activos(conListas[i])
+    if (!b.size) continue
+    const siguen = [...b].filter((k) => a.has(k)).length
+    tasas.push(siguen / b.size)
+    entradas.push(a.size - siguen)
+  }
+  if (!tasas.length) return null
+  const prom = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length
+  // La retención es estable (6 meses); las entradas cambian rápido (3 meses, las más recientes)
+  const entradasRecientes = entradas.slice(0, 3)
+  const ultimos = conListas.slice(-3)
+  const ptsPorActivo = prom(ultimos.map((m) => m.volumenRed / (activos(m).size || 1)))
+  const ultimo = conListas[conListas.length - 1]
+  return {
+    retencion: prom(tasas),
+    entradas: prom(entradasRecientes),
+    // >1 si las entradas de los últimos 3 meses superan a las de los 3 anteriores
+    tendenciaEntradas: entradas.length >= 6 && prom(entradas.slice(3, 6)) > 0
+      ? prom(entradasRecientes) / prom(entradas.slice(3, 6)) : null,
+    activos: activos(ultimo).size,
+    ptsPorActivo,
+    volumen: ultimo.volumenRed,
+  }
+}
+
+/**
+ * Proyecta mes a mes con activos × r + E hasta alcanzar `metaVolumen`.
+ * Devuelve { meses, llega, estable, volumenEstable, activosMeta }.
+ * `meses` es null si con esos números la red se estaciona antes de la meta.
+ */
+export function proyectarRango({ activos, ptsPorActivo, retencion, entradas, metaVolumen, volumen = 0, tope = 60 }) {
+  const r = Math.min(0.97, Math.max(0, retencion))
+  const estable = entradas / (1 - r)
+  const activosMeta = Math.ceil(metaVolumen / (ptsPorActivo || 1))
+  let a = activos
+  let n = null
+  // "Ya alcanza" solo si el volumen real ya llegó; si no, como mínimo es el mes que viene
+  if (volumen >= metaVolumen) n = 0
+  else {
+    for (let i = 1; i <= tope; i++) {
+      a = a * r + entradas
+      if (a >= activosMeta) { n = i; break }
+    }
+  }
+  return { meses: n, llega: n != null, estable, volumenEstable: estable * ptsPorActivo, activosMeta }
+}
+
+export const CAMPOS_ACTIVIDAD = [
+  ['invitaciones', 'Invitaciones'],
+  ['presentaciones', 'Presentaciones'],
+  ['seguimientos', 'Seguimientos'],
+  ['inscritos', 'Inscritos'],
+]
+
+/** "2026-11-16" de una fecha local */
+export function fechaISO(fecha = new Date()) {
+  return fecha.toLocaleDateString('en-CA')
+}
+
+/** Suma la actividad de los últimos `dias` días (incluye hoy) */
+export function sumarActividad(actividad, dias, hasta = new Date()) {
+  const total = { invitaciones: 0, presentaciones: 0, seguimientos: 0, inscritos: 0, diasConRegistro: 0 }
+  for (let i = 0; i < dias; i++) {
+    const f = new Date(hasta)
+    f.setDate(f.getDate() - i)
+    const dia = actividad[fechaISO(f)]
+    if (!dia) continue
+    let alguno = false
+    for (const [campo] of CAMPOS_ACTIVIDAD) {
+      const v = Number(dia[campo]) || 0
+      total[campo] += v
+      if (v > 0) alguno = true
+    }
+    if (alguno) total.diasConRegistro++
+  }
+  return total
+}
+
+/** Días transcurridos de la semana en curso (lunes = 1 … domingo = 7) */
+export function diasDeEstaSemana(hoy = new Date()) {
+  return ((hoy.getDay() + 6) % 7) + 1
+}
+
+/** Pasos del arranque de un nuevo: clave, texto y día sugerido tras inscribirse */
+export const PASOS_ARRANQUE = [
+  { id: 'bienvenida', texto: 'Bienvenida', detalle: 'Darle la bienvenida y explicarle cómo usar sus productos', dia: 1 },
+  { id: 'seguimiento', texto: 'Llamada de seguimiento', detalle: 'Preguntarle cómo le ha ido y resolver dudas', dia: 7 },
+  { id: 'recompra', texto: 'Recompra', detalle: 'Ayudarle a hacer su siguiente pedido', dia: 21 },
+]
+
+/**
+ * "Ya compró": se marca a mano en cuanto el nuevo hace su recompra, sin esperar
+ * a la lista del mes siguiente (que de todos modos lo saca de Nuevos).
+ */
+export const PASO_COMPRA = 'compro'
+
+/**
+ * Estado del arranque de una persona: pasos hechos, el siguiente y, si se
+ * conoce su fecha de inscripción, cuándo toca ("hoy", atrasado o en N días).
+ */
+export function estadoArranque(registro, hoy = new Date()) {
+  const hechos = registro?.pasos || {}
+  const compro = Boolean(hechos[PASO_COMPRA])
+  const completos = PASOS_ARRANQUE.filter((p) => hechos[p.id]).length
+  const siguiente = compro ? null : PASOS_ARRANQUE.find((p) => !hechos[p.id]) || null
+  let diasPara = null
+  if (siguiente && registro?.inicio) {
+    const inicio = new Date(`${registro.inicio}T12:00`)
+    const toca = new Date(inicio)
+    toca.setDate(toca.getDate() + siguiente.dia)
+    const medio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 12)
+    diasPara = Math.round((toca - medio) / 86400000)
+  }
+  return { completos, total: PASOS_ARRANQUE.length, siguiente, diasPara, compro }
+}
+
+/** Limpia un objeto { fecha: { campo: n } } de actividad importado; null si viene dañado */
+export function validarActividad(obj) {
+  if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return null
+  const limpio = {}
+  for (const [fecha, dia] of Object.entries(obj)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !dia || typeof dia !== 'object') return null
+    const d = {}
+    for (const [campo] of CAMPOS_ACTIVIDAD) {
+      const v = Number(dia[campo]) || 0
+      if (v > 0) d[campo] = Math.round(v)
+    }
+    if (Object.keys(d).length) limpio[fecha] = d
+  }
+  return limpio
+}
+
+/** Limpia el arranque importado { clave: { inicio, pasos: { id: fecha } } }; null si viene dañado */
+export function validarArranque(obj) {
+  if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return null
+  const limpio = {}
+  for (const [clave, r] of Object.entries(obj)) {
+    if (!r || typeof r !== 'object') return null
+    const pasos = {}
+    for (const id of [...PASOS_ARRANQUE.map((p) => p.id), PASO_COMPRA]) {
+      if (typeof r.pasos?.[id] === 'string' && r.pasos[id]) pasos[id] = r.pasos[id]
+    }
+    limpio[clave] = { inicio: typeof r.inicio === 'string' ? r.inicio : '', pasos }
+  }
+  return limpio
+}
+
+// ---------- Revividos (nov 2026) ----------
+
+/** Grupo según los meses que alguien llevaba sin comprar (mismos cortes que Mi gente) */
+export function grupoPorMeses(n) {
+  return GRUPOS_INACTIVOS.find((g) => n >= g.desde && n <= g.hasta)?.id || 'perdidos'
+}
+
+/**
+ * Quién revivió en cada mes, detectado solo con las listas: compró este mes,
+ * NO compró el mes anterior y ya había comprado antes. Se clasifica por los
+ * meses que llevaba sin comprar al mes anterior (este mes, tibio, frío,
+ * dormido o perdido = más de 12). Además dice cuántos de los que revivieron
+ * el mes anterior siguieron comprando este mes ("se quedaron").
+ *
+ * Devuelve { actual, previo, personas, porGrupo, anteriores, siguen, historia }
+ * o null si no hay al menos 2 meses con lista.
+ */
+export function revividos(meses, hastaId = null) {
+  let conListas = mesesConLista(meses)
+  if (hastaId) conListas = conListas.filter((m) => m.id <= hastaId)
+  if (conListas.length < 2) return null
+  if (hastaId && conListas[conListas.length - 1].id !== hastaId) return null
+
+  const activos = conListas.map((m) => new Set(m.distribuidores.filter((d) => d.volumen > 0).map(claveDistribuidor)))
+
+  // Para cada mes i (desde el segundo): revividos y su grupo
+  const ultimaCompra = new Map() // clave → id del último mes con compra ANTES del mes que se revisa
+  const porMes = []
+  for (let i = 0; i < conListas.length; i++) {
+    const m = conListas[i]
+    const lista = []
+    if (i > 0) {
+      const previo = conListas[i - 1]
+      for (const d of m.distribuidores) {
+        if (d.volumen <= 0) continue
+        const k = claveDistribuidor(d)
+        if (activos[i - 1].has(k) || !ultimaCompra.has(k)) continue
+        if (lista.some((p) => p.clave === k)) continue
+        const sinComprar = mesesEntre(ultimaCompra.get(k), previo.id)
+        lista.push({
+          clave: k, id: String(d.id ?? '').trim(), nombre: d.nombre, volumen: d.volumen,
+          ultimaCompra: ultimaCompra.get(k), sinComprar, grupo: grupoPorMeses(sinComprar),
+        })
+      }
+    }
+    porMes.push(lista)
+    for (const k of activos[i]) ultimaCompra.set(k, m.id)
+  }
+
+  const i = conListas.length - 1
+  const personas = porMes[i].sort((a, b) => a.sinComprar - b.sinComprar || b.volumen - a.volumen)
+  const porGrupo = {}
+  for (const p of personas) porGrupo[p.grupo] = (porGrupo[p.grupo] || 0) + 1
+
+  // De los que revivieron el mes anterior, ¿siguieron comprando?
+  const anteriores = i >= 1 ? porMes[i - 1] : []
+  const siguen = anteriores.filter((p) => activos[i].has(p.clave))
+
+  // Historia de los últimos 6 meses: revividos y cuántos se quedaron al mes siguiente
+  const historia = []
+  for (let j = Math.max(1, i - 5); j <= i; j++) {
+    historia.push({
+      mes: conListas[j],
+      revividos: porMes[j].length,
+      seQuedaron: j < i ? porMes[j].filter((p) => activos[j + 1].has(p.clave)).length : null,
+    })
+  }
+
+  return {
+    actual: conListas[i], previo: conListas[i - 1],
+    personas, porGrupo,
+    anteriores: anteriores.length, siguen,
+    historia,
   }
 }

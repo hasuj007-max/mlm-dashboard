@@ -1,36 +1,21 @@
-// Componente raíz: sidebar + página activa + notificaciones.
+// Componente raíz: navegación + página activa + notificaciones.
 
 import { useApp } from './context/AppContext'
-import Sidebar from './components/Sidebar'
-import Dashboard from './paginas/Dashboard'
+import Navegacion from './components/Navegacion'
+import Resumen from './paginas/Resumen'
+import Gente from './paginas/Gente'
 import Captura from './paginas/Captura'
-import Distribuidores from './paginas/Distribuidores'
-import Retencion from './paginas/Retencion'
-import Seguimiento from './paginas/Seguimiento'
-import Comparativa from './paginas/Comparativa'
-import Reporte from './paginas/Reporte'
-import Historial from './paginas/Historial'
-import Configuracion from './paginas/Configuracion'
+import Mas from './paginas/Mas'
 
-const PAGINAS = {
-  dashboard: Dashboard,
-  captura: Captura,
-  distribuidores: Distribuidores,
-  retencion: Retencion,
-  seguimiento: Seguimiento,
-  comparativa: Comparativa,
-  reporte: Reporte,
-  historial: Historial,
-  configuracion: Configuracion,
-}
+const PAGINAS = { resumen: Resumen, gente: Gente, captura: Captura, mas: Mas }
 
 export default function App() {
   const { pagina, toast } = useApp()
-  const Pagina = PAGINAS[pagina] || Dashboard
+  const Pagina = PAGINAS[pagina] || Resumen
 
   return (
     <div className="app">
-      <Sidebar />
+      <Navegacion />
       <main className="contenido">
         <Pagina />
       </main>

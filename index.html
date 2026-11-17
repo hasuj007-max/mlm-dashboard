@@ -2,6 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // El login con Google solo funciona bien desde el mismo dominio que authDomain
+      if (location.hostname === 'mi-red-hasuj.web.app') {
+        location.replace('https://mi-red-hasuj.firebaseapp.com' + location.pathname + location.search)
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MLM Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

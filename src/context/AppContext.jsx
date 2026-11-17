@@ -3,11 +3,46 @@
 // notificaciones (toasts).
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { idDeMes, ordenarPorFecha, validarSeguimiento } from '../utils/calculos'
+import { useNube } from '../nube/useNube'
+import { idDeMes, ordenarPorFecha, validarSeguimiento, validarActividad, validarArranque, fechaISO } from '../utils/calculos'
 
 const CLAVE_DATOS = 'mlm-dashboard-datos-v1'
 const CLAVE_TEMA = 'mlm-dashboard-tema'
 const CLAVE_SEGUIMIENTO = 'mlm-dashboard-seguimiento-v1'
+const CLAVE_MENSAJES = 'mlm-dashboard-mensajes-v1'
+const CLAVE_ACTIVIDAD = 'mlm-dashboard-actividad-v1' // { 'AAAA-MM-DD': { invitaciones, presentaciones, seguimientos, inscritos } }
+const CLAVE_ARRANQUE = 'mlm-dashboard-arranque-v1' // { claveDistribuidor: { inicio, pasos: { id: fecha } } }
+
+/** Mensajes de WhatsApp por tipo de lista; {nombre} se cambia por el primer nombre */
+export const MENSAJES_BASE = {
+  nuevos: 'Hola {nombre}, ¿cómo te ha ido con tus productos? Quiero ayudarte a sacarles el mayor provecho. ¿Tienes 5 minutos para platicar?',
+  caidos: 'Hola {nombre}, ¿cómo estás? Me acordé de ti. ¿Cómo te fue con tus productos? Cuéntame y vemos qué te conviene este mes.',
+  casi: 'Hola {nombre}, vi que este mes te quedaste muy cerca de calificar. Te cuento qué te conviene pedir para lograrlo el próximo. ¿Te marco?',
+  todos: 'Hola {nombre}, ¿cómo estás?',
+}
+
+// Nombres de páginas de versiones anteriores → [página, opción] de hoy
+const ALIAS = {
+  dashboard: ['resumen'],
+  seguimiento: ['gente', 'caidos'],
+  distribuidores: ['gente', 'todos'],
+  historial: ['mas', 'historial'],
+  reporte: ['mas', 'reporte'],
+  configuracion: ['mas', 'ajustes'],
+}
+
+function cargarMensajes() {
+  try {
+    const guardados = JSON.parse(localStorage.getItem(CLAVE_MENSAJES) || '{}')
+    const limpios = {}
+    for (const k of Object.keys(MENSAJES_BASE)) {
+      if (typeof guardados[k] === 'string' && guardados[k].trim()) limpios[k] = guardados[k]
+    }
+    return { ...MENSAJES_BASE, ...limpios }
+  } catch {
+    return { ...MENSAJES_BASE }
+  }
+}
 
 const AppContext = createContext(null)
 
@@ -34,10 +69,23 @@ function cargarSeguimiento() {
   }
 }
 
+/** Lee un objeto guardado y lo pasa por su validador; si falla, empieza vacío */
+function cargarObjeto(clave, validar) {
+  try {
+    return validar(JSON.parse(localStorage.getItem(clave) || '{}')) || {}
+  } catch {
+    return {}
+  }
+}
+
 export function AppProvider({ children }) {
   const [meses, setMeses] = useState(cargarMeses)
   const [seguimiento, setSeguimiento] = useState(cargarSeguimiento)
-  const [pagina, setPagina] = useState('dashboard')
+  const [pagina, setPagina] = useState('resumen')
+  const [opcion, setOpcion] = useState(null) // pestaña a abrir dentro de la página
+  const [mensajes, setMensajes] = useState(cargarMensajes)
+  const [actividad, setActividad] = useState(() => cargarObjeto(CLAVE_ACTIVIDAD, validarActividad))
+  const [arranque, setArranque] = useState(() => cargarObjeto(CLAVE_ARRANQUE, validarArranque))
   const [editandoId, setEditandoId] = useState(null) // mes que se edita en Captura
   const [tema, setTema] = useState(() => localStorage.getItem(CLAVE_TEMA) || 'oscuro')
   const [toast, setToast] = useState(null)
@@ -50,6 +98,18 @@ export function AppProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(CLAVE_SEGUIMIENTO, JSON.stringify(seguimiento))
   }, [seguimiento])
+
+  useEffect(() => {
+    localStorage.setItem(CLAVE_MENSAJES, JSON.stringify(mensajes))
+  }, [mensajes])
+
+  useEffect(() => {
+    localStorage.setItem(CLAVE_ACTIVIDAD, JSON.stringify(actividad))
+  }, [actividad])
+
+  useEffect(() => {
+    localStorage.setItem(CLAVE_ARRANQUE, JSON.stringify(arranque))
+  }, [arranque])
 
   useEffect(() => {
     localStorage.setItem(CLAVE_TEMA, tema)
@@ -70,7 +130,7 @@ export function AppProvider({ children }) {
     const id = idDeMes(registro.anio, registro.mes)
     setMeses((previos) => {
       const sinAnterior = previos.filter((m) => m.id !== idAnterior && m.id !== id)
-      return ordenarPorFecha([...sinAnterior, { ...registro, id }])
+      return ordenarPorFecha([...sinAnterior, { ...registro, id, actualizado: Date.now() }])
     })
   }
 
@@ -86,7 +146,8 @@ export function AppProvider({ children }) {
 
   /** Reemplaza todos los datos (importación de respaldo ya validada) */
   function reemplazarTodo(nuevosMeses) {
-    setMeses(ordenarPorFecha(nuevosMeses))
+    const ahora = Date.now() // lo importado gana sobre lo que haya en la nube
+    setMeses(ordenarPorFecha(nuevosMeses.map((m) => ({ ...m, actualizado: ahora }))))
   }
 
   /** Cambia el seguimiento de una persona (estado, nota o teléfono) */
@@ -97,6 +158,42 @@ export function AppProvider({ children }) {
     }))
   }
 
+  /** Suma (o resta) uno a un contador de actividad de un día; nunca baja de cero */
+  function registrarActividad(campo, delta, fecha = fechaISO()) {
+    setActividad((previa) => {
+      const dia = { ...previa[fecha] }
+      dia[campo] = Math.max(0, (dia[campo] || 0) + delta)
+      return { ...previa, [fecha]: dia }
+    })
+  }
+
+  /** Marca o desmarca un paso del arranque de un nuevo */
+  function marcarPaso(clave, paso, hecho) {
+    setArranque((previo) => {
+      const r = previo[clave] || { inicio: '', pasos: {} }
+      const pasos = { ...r.pasos }
+      if (hecho) pasos[paso] = fechaISO()
+      else delete pasos[paso]
+      return { ...previo, [clave]: { ...r, pasos } }
+    })
+  }
+
+  /** Guarda la fecha en que se inscribió un nuevo (para saber qué día toca cada paso) */
+  function fijarInicio(clave, inicio) {
+    setArranque((previo) => ({ ...previo, [clave]: { pasos: {}, ...previo[clave], inicio } }))
+  }
+
+  // Copia en la nube (solo si hay sesión de Google)
+  const nube = useNube({
+    meses, setMeses, avisar,
+    extras: {
+      seguimiento: [seguimiento, setSeguimiento],
+      actividad: [actividad, setActividad],
+      arranque: [arranque, setArranque],
+      mensajes: [mensajes, setMensajes],
+    },
+  })
+
   /** Nombres de distribuidores usados en cualquier mes (para autocompletar) */
   const nombresConocidos = useMemo(() => {
     const nombres = new Set()
@@ -104,20 +201,27 @@ export function AppProvider({ children }) {
     return [...nombres].sort((a, b) => a.localeCompare(b, 'es'))
   }, [meses])
 
-  /** Navega a una página; al ir a Captura se puede pasar un mes a editar */
-  function navegar(destino, idAEditar = null) {
+  /** Navega a una página; a Captura se le puede pasar un mes a editar y a las demás una pestaña */
+  function navegar(destino, idAEditar = null, opcionDestino = null) {
+    const [real, opcionAlias] = ALIAS[destino] || [destino]
     setEditandoId(idAEditar)
-    setPagina(destino)
+    setOpcion(opcionDestino || opcionAlias || null)
+    setPagina(real)
     window.scrollTo(0, 0)
   }
 
   const valor = {
     meses, sinDatos,
-    pagina, navegar, editandoId,
+    pagina, opcion, navegar, editandoId,
+    mensajes, guardarMensaje: (tipo, texto) => setMensajes((m) => ({ ...m, [tipo]: texto })),
     tema, setTema,
     toast, avisar,
     guardarMes, existeMes, eliminarMes, reemplazarTodo,
     seguimiento, actualizarSeguimiento, reemplazarSeguimiento: setSeguimiento,
+    actividad, registrarActividad, reemplazarActividad: setActividad,
+    arranque, marcarPaso, fijarInicio, reemplazarArranque: setArranque,
+    reemplazarMensajes: (m) => setMensajes({ ...MENSAJES_BASE, ...m }),
+    ...nube,
     nombresConocidos,
   }
 

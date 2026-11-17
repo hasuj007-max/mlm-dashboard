@@ -151,3 +151,86 @@ export const IconoCheck = () => (
     <path d="M20 6 9 17l-5-5" />
   </svg>
 )
+
+// ---------- Iconos del rediseño (nov 2026): trazo fino, 22 px ----------
+
+const fino = { ...base, width: 22, height: 22, strokeWidth: 1.7 }
+
+/** Resumen: pulso del negocio */
+export const IconoResumen = () => (
+  <svg {...fino}>
+    <path d="M3 12h3.5l2.5-6 4 12 2.5-6H21" />
+  </svg>
+)
+
+/** Mi gente */
+export const IconoGente = () => (
+  <svg {...fino}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M2.8 19.5c.5-3.2 3-5 6.2-5s5.7 1.8 6.2 5" />
+    <path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.8M18 14.9c1.8.7 2.9 2.3 3.2 4.6" />
+  </svg>
+)
+
+/** Cargar mes */
+export const IconoCargar = () => (
+  <svg {...fino}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+    <path d="M12 8v8M8 12h8" />
+  </svg>
+)
+
+/** Más */
+export const IconoPuntos = () => (
+  <svg {...fino}>
+    <circle cx="5.5" cy="12" r="1.3" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+    <circle cx="18.5" cy="12" r="1.3" fill="currentColor" />
+  </svg>
+)
+
+/** Nuevo por arrancar */
+export const IconoBrote = () => (
+  <svg {...fino}>
+    <path d="M12 21v-9" />
+    <path d="M12 12c0-3.5-2.5-6-6.5-6 0 3.5 2.5 6 6.5 6Z" />
+    <path d="M12 9.5c0-3 2.2-5.5 6.5-5.5 0 3.5-2.5 5.5-6.5 5.5Z" />
+  </svg>
+)
+
+/** Se cayeron */
+export const IconoCaida = () => (
+  <svg {...fino}>
+    <path d="M3 7l6.5 6.5 4-4L21 17" />
+    <path d="M21 11.5V17h-5.5" />
+  </svg>
+)
+
+/** Casi califican / meta */
+export const IconoDiana = () => (
+  <svg {...fino}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="4.5" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+  </svg>
+)
+
+export const IconoFlecha = () => (
+  <svg {...fino} width="18" height="18">
+    <path d="M9 5.5 15.5 12 9 18.5" />
+  </svg>
+)
+
+export const IconoWhatsApp = () => (
+  <svg {...fino} width="18" height="18">
+    <path d="M3.5 20.5 4.8 16A8.5 8.5 0 1 1 8 19.2Z" />
+    <path d="M9 8.8c0 3.2 2.8 6 6 6.2l1-1.5-2-1-1 .8c-1-.5-1.8-1.3-2.3-2.3l.8-1-1-2Z" />
+  </svg>
+)
+
+export const IconoLupa = () => (
+  <svg {...fino} width="18" height="18">
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4.5 4.5" />
+  </svg>
+)
